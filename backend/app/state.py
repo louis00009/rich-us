@@ -14,7 +14,7 @@ from .config import settings as app_settings
 from .database import session_scope
 from .models import AppSetting, AuditLog, RiskConfig
 from .security import decrypt, encrypt
-from .risk.guardrails import RiskLimits
+from .risk.guardrails import GuardContext, RiskLimits
 
 # ------------------------------------------------------------------
 # 审计日志
@@ -143,7 +143,7 @@ def build_guard_context(
     acc: Any,
     positions: list[Any],
     now: dt.datetime | None = None,
-) -> "GuardContext":
+) -> GuardContext:
     """从账户快照 + 持仓列表构造 GuardContext，供全部 4 处下单链路复用。
 
     修复的两个静默缺陷：
@@ -342,7 +342,7 @@ def system_status() -> dict[str, Any]:
 # ==================================================================
 from collections import deque as _deque  # noqa: E402
 
-_slow_requests: "deque" = _deque(maxlen=50)
+_slow_requests: _deque = _deque(maxlen=50)
 
 
 def record_slow_request(path: str, ms: int, at: str) -> None:

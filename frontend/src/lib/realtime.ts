@@ -50,8 +50,9 @@ function notifyState(online: boolean) {
 
 function wsUrl(): string {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-  const token = localStorage.getItem('qd_token') || ''
-  return `${proto}://${location.host}/api/ws?token=${encodeURIComponent(token)}`
+  // P1-11：token **不再**放进查询串 —— 那会写进浏览器历史、反向代理访问日志、
+  // Referer 头。改为连接建立后由首帧发送（见 connect() 的 onopen）。
+  return `${proto}://${location.host}/api/ws`
 }
 
 function rawSend(obj: unknown): boolean {
@@ -89,6 +90,16 @@ function connect() {
     connecting = false
     retryDelay = 1000
     notifyState(true)
+    // P1-11：token 走**首帧**（服务端优先按首帧鉴权，见 backend/app/api/ws.py）。
+    // WebSocket 消息有序，所以「先 auth 再 sub」是安全的。
+    const token = localStorage.getItem('qd_token') || ''
+    if (token) {
+      try {
+        w.send(JSON.stringify({ action: 'auth', token }))
+      } catch {
+        /* 连接刚断则忽略，重连后会再发 */
+      }
+    }
     resubscribeAll()
   }
   w.onmessage = (ev) => {

@@ -1,0 +1,30 @@
+# QuantDesk for IBKR — 后端静态检查配置（审查 P2-15）
+#
+# 灰度策略：**先只启用「几乎必然是 bug」的规则**。
+# 一次性打开全部规则会暴露上千条存量告警，结果通常是被人直接关掉检查 ——
+# 那还不如不引入。存量清零后再逐步加规则（下一步建议加 B 系列 bugbear）。
+#
+# 用法：
+#   cd backend
+#   .venv/Scripts/python.exe -m ruff check ../backend/app ../tools ../tests
+#   .venv/Scripts/python.exe -m ruff check app/api/trading.py      # 只查改动文件
+#
+# 安装：.venv/Scripts/python.exe -m pip install ruff
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+extend-exclude = [
+    "backend/.venv",
+    "backend/runtime",
+    "frontend",
+    "tests/_archive",
+]
+
+[tool.ruff.lint]
+# E9  = 语法 / IO 错误（含 E999 语法错误）
+# F63 = 无效的比较 / 断言（恒真恒假一类）
+# F7  = 语法层面的问题（break/continue 位置等）
+# F82 = **未定义名字** —— 真 bug：NameError 的静态预警。
+#        本项目历史上就漏过一次（`_from_yf` 拼错被 except 吞掉），故必开。
+select = ["E9", "F63", "F7", "F82"]

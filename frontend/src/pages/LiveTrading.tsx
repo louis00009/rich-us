@@ -51,17 +51,55 @@ import type {
 
 const WATCH = ['SPY', 'QQQ', 'NVDA', 'AAPL', 'TSLA', 'MSFT', 'AMD', 'META']
 
+/* P3-11：把这几个原本是 `any` 的接口响应补上类型（只列前端实际用到的字段）。
+   好处不只是"类型好看" —— 后端改字段名时 tsc 会立刻报错，而不是在运行时
+   变成 undefined 静默渲染空白。 */
+interface ModeInfo {
+  mode: 'paper' | 'live'
+  ui_mode?: string
+  broker?: string
+  port?: number
+  live_env_gate?: boolean
+  live_unlocked?: boolean
+  live_ready?: boolean
+  live_reason?: string
+  confirm_phrase?: string
+}
+
+interface RiskLimitsView {
+  max_position_pct: number
+  max_gross_exposure_pct: number
+  max_open_positions: number
+}
+
+interface EngineStatusView {
+  runs: OrderRow[]
+  active?: Record<string, unknown>
+}
+
+/** 券商挂单（/api/trading/open-orders 的 items，字段随券商而异） */
+interface OpenOrder {
+  order_id: string
+  symbol: string
+  action: string
+  type: string
+  quantity: number
+  lmt_price?: number
+  aux_price?: number
+  status: string
+}
+
 export default function LiveTrading() {
   const toast = useToast()
   const [acc, setAcc] = useState<AccountSnapshot | null>(null)
   const [positions, setPositions] = useState<PositionItem[]>([])
   const [orders, setOrders] = useState<OrderRow[]>([])
-  const [mode, setMode] = useState<any>(null)
+  const [mode, setMode] = useState<ModeInfo | null>(null)
   const [strategyList, setStrategyList] = useState<StrategyConfig[]>([])
-  const [engine, setEngine] = useState<any>(null)
-  const [riskLimits, setRiskLimits] = useState<any>(null)
+  const [engine, setEngine] = useState<EngineStatusView | null>(null)
+  const [riskLimits, setRiskLimits] = useState<RiskLimitsView | null>(null)
   const [brokerSt, setBrokerSt] = useState<BrokerStatus | null>(null)
-  const [openOrders, setOpenOrders] = useState<any[]>([])
+  const [openOrders, setOpenOrders] = useState<OpenOrder[]>([])
   const [quotes, setQuotes] = useState<Record<string, Quote>>({})
   const [sparks, setSparks] = useState<Record<string, number[]>>({})
   const [loading, setLoading] = useState(true)
@@ -847,7 +885,7 @@ export default function LiveTrading() {
 
           {openOrders.length > 0 && (
             <Card title="券商挂单" subtitle="含保护性止损/止盈单" dense actions={<Badge tone="brand">{openOrders.length}</Badge>}>
-              <DataTable<any>
+              <DataTable<OpenOrder>
                 rows={openOrders}
                 rowKey={(r) => r.order_id}
                 maxHeight="240px"
@@ -904,8 +942,11 @@ export default function LiveTrading() {
                   const grossPct = acc?.equity
                     ? (positions.reduce((s, p) => s + Math.abs(p.market_value), 0) / acc.equity) * 100
                     : 0
-                  const maxPosPct = acc?.equity
-                    ? Math.max(...positions.map((p) => (Math.abs(p.market_value) / acc!.equity) * 100), 0)
+                  // P3-11：原先用 `acc!.equity` 非空断言 —— 箭头函数内部 TS 无法从
+                  // 外层的可选链收窄，断言一旦失效就是运行时崩溃。改用局部常量。
+                  const equity = acc?.equity ?? 0
+                  const maxPosPct = equity
+                    ? Math.max(...positions.map((p) => (Math.abs(p.market_value) / equity) * 100), 0)
                     : 0
                   return (
                     <>

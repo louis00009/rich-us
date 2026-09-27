@@ -19,6 +19,7 @@ import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, Iterable
 
 import httpx
@@ -261,7 +262,7 @@ def search_symbols(q: str, limit: int = 20) -> list[dict[str, str]]:
 # ------------------------------------------------------------------
 # 缓存
 # ------------------------------------------------------------------
-def _cache_path(symbol: str, interval: str) -> "PathLike":  # type: ignore[name-defined]
+def _cache_path(symbol: str, interval: str) -> Path:
     safe = symbol.replace("^", "IDX_").replace("/", "_").replace("\\", "_")
     d = CACHE_DIR / interval
     d.mkdir(parents=True, exist_ok=True)

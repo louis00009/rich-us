@@ -241,6 +241,29 @@ async def security_middleware(request: Request, call_next):
     return response
 
 
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    """P3-13：分级限流（规则见 app/ratelimit.py）。
+
+    只对 /api/* 生效。超限返回 429 + Retry-After —— 让调用方（尤其循环调用的
+    AI Agent）明确知道自己被限流，而不是拿到含义不明的错误或让服务被拖垮。
+    可用 QD_RATE_LIMIT=0 整体关闭。
+    """
+    from . import ratelimit
+
+    if ratelimit.enabled() and request.url.path.startswith(settings.api_prefix):
+        ip = request.client.host if request.client else "unknown"
+        ok, wait = ratelimit.hit(f"ip:{ip}", request.url.path)
+        if not ok:
+            log.warning("限流：%s %s（%s 秒后可重试）", request.method, request.url.path, wait)
+            return JSONResponse(
+                {"detail": f"请求过于频繁，请 {wait} 秒后重试（限流保护）"},
+                status_code=429,
+                headers={"Retry-After": str(wait)},
+            )
+    return await call_next(request)
+
+
 @app.exception_handler(Exception)
 async def unhandled(request: Request, exc: Exception) -> JSONResponse:  # noqa: ARG001
     # P2：统一 500 附带 request-id —— 旧实现响应只有异常类名，日志与响应无法关联。

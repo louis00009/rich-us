@@ -2,6 +2,7 @@
  * 图表组件（基于 recharts）
  * 配色：涨红跌绿（中国习惯），可在设置中切换
  */
+import { memo } from 'react'
 import {
   Area,
   AreaChart,
@@ -54,7 +55,7 @@ function TipBox({ active, payload, label, formatter }: any) {
 /* ================================================================
  * 权益曲线 + 回撤
  * ================================================================ */
-export function EquityChart({
+function EquityChartImpl({
   data,
   height = 320,
   showBenchmark = true,
@@ -154,7 +155,7 @@ export function EquityChart({
 /* ================================================================
  * 价格图（含均线 + 支撑阻力）
  * ================================================================ */
-export function PriceChart({
+function PriceChartImpl({
   dates,
   close,
   overlays = [],
@@ -311,7 +312,7 @@ export function PriceChart({
 /* ================================================================
  * 迷你走势图
  * ================================================================ */
-export function MiniSpark({
+function MiniSparkImpl({
   data,
   positive,
   height = 36,
@@ -344,7 +345,7 @@ export function MiniSpark({
 /* ================================================================
  * 月度收益热力图
  * ================================================================ */
-export function MonthlyHeatmap({ monthly }: { monthly: Record<string, number> }) {
+function MonthlyHeatmapImpl({ monthly }: { monthly: Record<string, number> }) {
   const entries = Object.entries(monthly).sort(([a], [b]) => a.localeCompare(b))
   if (!entries.length) return <div className="py-10 text-center text-sm text-slate-400">暂无月度数据</div>
 
@@ -417,7 +418,7 @@ export function MonthlyHeatmap({ monthly }: { monthly: Record<string, number> })
 /* ================================================================
  * 多策略净值叠加对比
  * ================================================================ */
-export function MultiEquityChart({
+function MultiEquityChartImpl({
   data,
   labels,
   height = 340,
@@ -467,7 +468,7 @@ export function MultiEquityChart({
 /* ================================================================
  * 月度收益柱状图
  * ================================================================ */
-export function MonthlyBars({ monthly, height = 200 }: { monthly: Record<string, number>; height?: number }) {
+function MonthlyBarsImpl({ monthly, height = 200 }: { monthly: Record<string, number>; height?: number }) {
   const rows = Object.entries(monthly)
     .sort(([a], [b]) => a.localeCompare(b))
     .slice(-36)
@@ -494,7 +495,7 @@ export function MonthlyBars({ monthly, height = 200 }: { monthly: Record<string,
 /* ================================================================
  * 综合评分表盘
  * ================================================================ */
-export function ScoreGauge({ score, size = 140 }: { score: number; size?: number }) {
+function ScoreGaugeImpl({ score, size = 140 }: { score: number; size?: number }) {
   const pct = Math.max(0, Math.min(100, (score + 100) / 2))
   const color = score > 15 ? upColor() : score < -15 ? downColor() : '#94a3b8'
   const data = [{ name: 'score', value: pct, fill: color }]
@@ -527,7 +528,7 @@ export function ScoreGauge({ score, size = 140 }: { score: number; size?: number
 /* ================================================================
  * 横向柱状（参数重要性 / 维度对比）
  * ================================================================ */
-export function HBar({
+function HBarImpl({
   data,
   height = 200,
   color = '#6366f1',
@@ -555,7 +556,7 @@ export function HBar({
 /* ================================================================
  * 有效前沿散点图（组合优化）
  * ================================================================ */
-export function EfficientFrontierChart({
+function EfficientFrontierChartImpl({
   points,
   current,
   equalWeight,
@@ -650,7 +651,7 @@ export function EfficientFrontierChart({
 /* ================================================================
  * 相关性矩阵
  * ================================================================ */
-export function CorrelationMatrix({ corr }: { corr: Record<string, Record<string, number | null>> }) {
+function CorrelationMatrixImpl({ corr }: { corr: Record<string, Record<string, number | null>> }) {
   const syms = Object.keys(corr)
   if (syms.length < 2) return <div className="py-10 text-center text-sm text-slate-400">标的需要 ≥ 2 个</div>
   return (
@@ -692,3 +693,18 @@ export function CorrelationMatrix({ corr }: { corr: Record<string, Record<string
     </div>
   )
 }
+
+
+/* P2-8：memo 化导出。
+   行情经 WebSocket 2 秒一拍推送，会触发页面级重渲染，而 recharts 图表重绘成本高。
+   memo 后只要 props 引用不变就跳过重渲染。内部实现重命名为 XImpl 以避免与导出名冲突。 */
+export const EquityChart = memo(EquityChartImpl)
+export const PriceChart = memo(PriceChartImpl)
+export const MiniSpark = memo(MiniSparkImpl)
+export const MonthlyHeatmap = memo(MonthlyHeatmapImpl)
+export const MultiEquityChart = memo(MultiEquityChartImpl)
+export const MonthlyBars = memo(MonthlyBarsImpl)
+export const ScoreGauge = memo(ScoreGaugeImpl)
+export const HBar = memo(HBarImpl)
+export const EfficientFrontierChart = memo(EfficientFrontierChartImpl)
+export const CorrelationMatrix = memo(CorrelationMatrixImpl)

@@ -74,7 +74,9 @@ async function request<T>(path: string, init: RequestInit = {}, timeoutMs = DEFA
   }
 
   const text = await res.text()
-  let data: any = null
+  // P3-11：JSON.parse 的返回值本质是 unknown —— 原先直接标 `any`，
+  // 会让 `data.detail` 之类的字段名写错也无人报错。这里显式收窄后再取字段。
+  let data: unknown = null
   if (text) {
     try {
       data = JSON.parse(text)
@@ -84,12 +86,23 @@ async function request<T>(path: string, init: RequestInit = {}, timeoutMs = DEFA
   }
 
   if (!res.ok) {
-    const detail = data?.detail
+    const errBody = (data ?? {}) as { detail?: unknown; code?: unknown }
+    const detail = errBody.detail
     let msg = '请求失败'
-    if (typeof detail === 'string') msg = detail
-    else if (Array.isArray(detail)) msg = detail.map((d: any) => `${d.loc?.join('.')}: ${d.msg}`).join('；')
-    else if (detail) msg = JSON.stringify(detail)
-    throw new ApiError(msg, res.status, data?.code)
+    if (typeof detail === 'string') {
+      msg = detail
+    } else if (Array.isArray(detail)) {
+      // FastAPI 校验错误：detail 是 [{loc, msg, type}, ...]
+      msg = detail
+        .map((d) => {
+          const item = (d ?? {}) as { loc?: unknown[]; msg?: string }
+          return `${(item.loc ?? []).join('.')}: ${item.msg ?? ''}`
+        })
+        .join('；')
+    } else if (detail) {
+      msg = JSON.stringify(detail)
+    }
+    throw new ApiError(msg, res.status, typeof errBody.code === 'string' ? errBody.code : undefined)
   }
   return data as T
 }

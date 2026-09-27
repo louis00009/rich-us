@@ -10,6 +10,7 @@
 """
 from __future__ import annotations
 
+import threading
 from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Callable
@@ -406,7 +407,7 @@ def grid_optimize(
     objective: str = "sharpe",
     max_combos: int = 200,
     progress_cb: Callable[[int, int], None] | None = None,
-    cancel_event: "threading.Event | None" = None,
+    cancel_event: threading.Event | None = None,
 ) -> dict[str, Any]:
     """参数穷举网格搜索，返回按目标函数排序的排行榜。
 

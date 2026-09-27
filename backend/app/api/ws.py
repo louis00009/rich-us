@@ -16,16 +16,31 @@ from ..security import decode_access_token
 router = APIRouter(tags=["实时推送"])
 
 MAX_SYMBOLS = 30
+AUTH_TIMEOUT_SEC = 10.0   # 首帧鉴权的等待上限
+
+
+def _subject_from_token(token: str) -> str | None:
+    payload = decode_access_token(token) if token else None
+    return payload.get("sub") if payload else None
+
+
+def _auth_from_header_or_query(ws: WebSocket) -> str | None:
+    """非首帧来源的鉴权：Authorization 头 > `?token=` 查询串。
+
+    P1-11：查询串会把 JWT 写进浏览器历史 / 反向代理访问日志 / Referer，
+    因此**不再是首选**；这里仅作为向后兼容（旧客户端、测试脚本）保留。
+    """
+    header = ws.headers.get("authorization", "")
+    if header.lower().startswith("bearer "):
+        sub = _subject_from_token(header[7:])
+        if sub:
+            return sub
+    return _subject_from_token(ws.query_params.get("token") or "")
 
 
 def _auth_ws(ws: WebSocket) -> str | None:
-    token = ws.query_params.get("token") or ""
-    if not token:
-        header = ws.headers.get("authorization", "")
-        if header.lower().startswith("bearer "):
-            token = header[7:]
-    payload = decode_access_token(token)
-    return payload.get("sub") if payload else None
+    """旧签名（`/ws/stream` 沿用）：仅 Authorization 头 + 查询串。"""
+    return _auth_from_header_or_query(ws)
 
 
 def _quotes_preferring_broker(symbols: list[str]) -> list[dict]:
@@ -47,17 +62,45 @@ async def hub(ws: WebSocket) -> None:
     """主题订阅式实时推送（T-106，秒级）。
 
     协议：
+      → {"action": "auth", "token": "<JWT>"}            ← 首帧鉴权（推荐，P1-11）
       → {"action": "sub"|"unsub", "topics": ["quotes:AAPL,SPY", "intraday:AAPL", "alerts"]}
       ← {"topic": "quotes", "ts": ..., "data": [...]}   2 秒一拍
       ← {"topic": "alerts", "ts": ..., "data": [...]}   新事件即时
       ← {"topic": "ack", "data": {"subscribed": [...]}}
+
+    鉴权来源优先级：首帧 auth > Authorization 头 > `?token=` 查询串（后两者向后兼容）。
     """
-    if not _auth_ws(ws):
-        await ws.close(code=4401)
-        return
     await ws.accept()
+    # P1-11：token 优先从**首帧**取 —— 不再要求把 JWT 放进 URL 查询串
+    # （那会写进浏览器历史 / 反向代理访问日志 / Referer）。
+    user = _auth_from_header_or_query(ws)
+    first_msg: dict | None = None
+    if not user:
+        try:
+            raw = await asyncio.wait_for(ws.receive_text(), timeout=AUTH_TIMEOUT_SEC)
+            parsed = json.loads(raw)
+            first_msg = parsed if isinstance(parsed, dict) else None
+        except Exception:  # noqa: BLE001 —— 超时 / 非法帧 / 客户端直接断开
+            await ws.close(code=4401)
+            return
+        if first_msg and str(first_msg.get("action", "")) == "auth":
+            user = _subject_from_token(str(first_msg.get("token") or ""))
+        if not user:
+            await ws.close(code=4401)
+            return
+
     loop = asyncio.get_running_loop()
     conn = realtime.register(loop)
+
+    def _apply(msg: dict) -> None:
+        action = str(msg.get("action", ""))
+        topics = [str(t) for t in (msg.get("topics") or [])][:20]
+        if action == "sub":
+            realtime.subscribe(conn, topics)
+        elif action == "unsub":
+            realtime.unsubscribe(conn, topics)
+        # P1-6 配套：用 snapshot() 而不是直接迭代 conn.topics（跨线程安全）
+        conn.push({"topic": "ack", "data": {"subscribed": sorted(conn.snapshot())}})
 
     async def _sender() -> None:
         try:
@@ -69,19 +112,16 @@ async def hub(ws: WebSocket) -> None:
 
     sender = asyncio.create_task(_sender())
     try:
+        # 首帧若不是 auth（例如直接发了 sub），也要照常处理，避免丢掉订阅
+        if first_msg is not None:
+            _apply(first_msg)
         while True:
             raw = await ws.receive_text()
             try:
                 msg = json.loads(raw)
             except (ValueError, TypeError):
                 continue
-            action = str(msg.get("action", ""))
-            topics = [str(t) for t in (msg.get("topics") or [])][:20]
-            if action == "sub":
-                realtime.subscribe(conn, topics)
-            elif action == "unsub":
-                realtime.unsubscribe(conn, topics)
-            conn.push({"topic": "ack", "data": {"subscribed": sorted(conn.topics)}})
+            _apply(msg)
     except WebSocketDisconnect:
         pass
     except Exception:  # noqa: BLE001
