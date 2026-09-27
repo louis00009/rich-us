@@ -198,6 +198,50 @@
 6. **回测/实盘共用 StopTracker**；本机 pandas 3.0（避免 stack/unstack 做 tr）；safe-delete 保护下 dist 清理走 prebuild rename。
 7. **后端只监听 127.0.0.1**；配置涨红跌绿（format.ts）。
 8. **AI 输出的一切交易动作必须经过 ai_proposals + 人工批准**（T-107 落地前，AI 只允许 ANALYZE/DRY_RUN）。
+9. **单文件规模上限与组件化**（2026-09-27 定 —— 不再「先堆着、以后再说」）：
+   - **阈值**（软 = 超过后新功能不得再加；硬 = 冻结，只允许修 bug）：
+
+     | 类型 | 软上限 | 硬上限 |
+     |---|---|---|
+     | 后端模块 `backend/app/**/*.py` | 600 | 900 |
+     | 前端页面 `src/pages/*.tsx` | 600 | 900 |
+     | 前端组件 `src/components/*.tsx` | 400 | 600 |
+
+   - **写新代码的规矩**：
+     - 新建文件不得超软上限；往已有文件加功能前，**先看它是否已超软上限** ——
+       超了就**新建模块**，不要接着加。
+     - **前端**：页面只做**编排**（取数 + 布局 + 状态），可复用的业务块一律抽到
+       `components/`。**同一页面内重复出现的卡片 / 表格 / 表单块必须抽组件，
+       禁止复制粘贴。**
+     - **后端**：路由文件（`api/*.py`）只做参数校验与编排；业务逻辑放 `engine/`
+       或独立模块，按职责拆（数据获取 / 撮合 / 券商适配 / 编排 各自独立）。
+   - **当前已超硬上限的冻结清单**（只允许修 bug，禁止再加功能）：
+
+     | 文件 | 行数 |
+     |---|---|
+     | `backend/app/brokers/ibkr.py` | 1804 |
+     | `frontend/src/pages/Intel.tsx` | 1269 |
+     | `backend/app/intel.py` | 1192 |
+     | `frontend/src/pages/LiveTrading.tsx` | 1170 |
+     | `backend/app/engine/live.py` | 1151 |
+     | `backend/app/data_provider.py` | 1129 |
+     | `frontend/src/pages/Backtest.tsx` | 1086 |
+     | `backend/app/engine/stream.py` | 1062 |
+
+     （另有 11 个前端页面 / 3 个组件 / 3 个后端模块处于「超软上限但未到硬上限」区间，
+     同样按规矩：**新功能不得再往里加**。）
+   - **拆分纪律**：一次只拆一个文件；每拆一步立刻跑
+     `run_checks.py strategies|optimize|api` + `tsc` + `vite build` + `smoke`；
+     **覆写整个文件前必须先核对它全部的既有导出** —— 本项目已两次因此丢函数
+     （`get_profile` 被 Write 覆盖删除，导致 `/market/rankings/profile` 500）。
+10. **datetime 口径：维持现状，不统一**（2026-09-27 决策，**不要再当 bug 提**）：
+    当前是「写入 aware UTC → 存进 naive 列 → 回读丢时区」的混合口径。
+    已知它会导致 naive/aware 比较抛 `TypeError`（历史踩坑 3 次），
+    但全局统一会**改变数据库时间字段语义**，历史数据与新增数据有混用风险，
+    收益不抵风险，故**明确决定不改**。新增代码请遵守：
+    - 不要假设从 DB 读出的时间字段带时区（`row.created_at.tzinfo` 通常是 `None`）；
+    - 与 DB 时间比较前，先确认两侧 tzinfo 状态，必要时统一成 naive UTC 再比；
+    - 需要绝对时刻时用 `datetime.now(timezone.utc)`，**不要**直接与 DB 值相减。
 
 ### T-141 当日分时走势图 ✅ 已完成（2026-09-23；2026-09-24 补休市回退与日线实时 bar）
 - [x] 后端 `/market/intraday`（1m 切片 + 累计均价 VWAP + 昨收基准 + delayed 标注）

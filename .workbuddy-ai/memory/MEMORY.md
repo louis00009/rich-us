@@ -34,6 +34,21 @@
   `CREATE INDEX IF NOT EXISTS`（见 `database.py` 的 `_MIGRATE_INDEXES`）与 `ALTER TABLE`。
 - 前端 hooks 必须在 early return 之前（React #300 白屏教训），构建链已固化
   `npm run lint:hooks`。
+- **铁律 9 · 文件规模与组件化（2026-09-27 定）**：软上限（**超了就不得再加功能**）
+  后端/页面 **600 行**、组件 **400 行**；硬上限（**冻结，只修 bug**）
+  后端/页面 **900 行**、组件 **600 行**。
+  已冻结：`brokers/ibkr.py` 1804、`pages/Intel.tsx` 1269、`intel.py` 1192、
+  `pages/LiveTrading.tsx` 1170、`engine/live.py` 1151、`data_provider.py` 1129、
+  `pages/Backtest.tsx` 1086、`engine/stream.py` 1062。
+  新功能必须**按组件/模块拆开写** —— 前端页面只做编排（取数+布局+状态），
+  可复用业务块抽到 `components/`，重复出现的卡片/表格/表单块**禁止复制粘贴**；
+  后端路由文件只做校验与编排，业务逻辑放 `engine/` 或独立模块。
+  拆分时一次只拆一个文件，每步跑回归。
+- **铁律 10 · datetime 口径已决定不改（2026-09-27 用户决策）**：
+  naive/aware 混合口径是**已知接受项，不要再当 bug 报**。写代码时不要假设
+  从 DB 读出的时间字段带时区；与 DB 时间比较前先确认两侧 tzinfo 状态。
+- 覆写整个文件前**必须先核对它全部的既有导出** —— 已两次因此丢函数
+  （`get_profile` 被 Write 覆盖删除 → `/market/rankings/profile` 500）。
 
 ## 测试与验证
 - 后端：`cd backend && .venv/Scripts/python.exe ../tests/run_checks.py [data|strategies|optimize|api]`

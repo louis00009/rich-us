@@ -180,5 +180,30 @@ curl -s ".../api/trading/preview" -H "Authorization: Bearer $TOK" \
 curl -s ".../api/ops/decisions?symbol=AAPL&limit=20" -H "Authorization: Bearer $TOK"
 ```
 
+## 9. 你要改代码时的约定（开发侧）
+
+本手册前 8 节讲的是「怎么**操作**平台」。如果你还要**改这个仓库的代码**，
+先读 `TODO.md` 末尾的《技术债与铁律》—— 其中两条最容易踩：
+
+- **铁律 9 · 文件规模与组件化**：软上限（**超过就不得再加功能**）后端/页面 **600 行**、
+  组件 **400 行**；硬上限（**冻结，只修 bug**）后端/页面 **900 行**、组件 **600 行**。
+  当前已冻结：`brokers/ibkr.py` 1804、`pages/Intel.tsx` 1269、`intel.py` 1192、
+  `pages/LiveTrading.tsx` 1170、`engine/live.py` 1151、`data_provider.py` 1129、
+  `pages/Backtest.tsx` 1086、`engine/stream.py` 1062。
+  新功能必须**按组件 / 模块拆开写**：前端页面只做编排（取数 + 布局 + 状态），
+  可复用业务块抽到 `components/`，重复出现的卡片/表格/表单块**禁止复制粘贴**；
+  后端路由文件只做参数校验与编排，业务逻辑放 `engine/` 或独立模块。
+- **铁律 10 · datetime 口径**：naive/aware 混合口径是**已知且已决定不改**的状态，
+  **不要再当 bug 报**。写代码时不要假设从 DB 读出的时间字段带时区。
+
+改动完成后必须自证：
+
+```bash
+cd backend && .venv/Scripts/python.exe ../tests/run_checks.py   # 后端自检（按子集跑更快）
+cd frontend && npm run typecheck && npm run lint:hooks && npm run build
+```
+
+> 覆写整个文件前**务必先核对它全部的既有导出** —— 本项目已两次因为整文件覆写而丢函数。
+
 ---
 *本文件由平台维护；接口变更时以 `/api/openapi.json` 为准。*
