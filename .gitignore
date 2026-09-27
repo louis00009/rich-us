@@ -1,0 +1,50 @@
+# ---- 运行时数据（含密钥、数据库、缓存）----
+backend/runtime/*
+!backend/runtime/.gitkeep
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---- Node ----
+node_modules/
+frontend/dist/
+frontend/dist.old-*/
+frontend/.vite/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---- 环境与密钥 ----
+.env
+.env.local
+*.secret
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- 开发期归档 ----
+tests/_archive/
+*.render-smoke-bundle.mjs
+*.db-shm
+*.db-wal
+
+# ---- 本地临时/工具产物（不入库）----
+# 修复前的文件备份：已由 git 取代，仅保留在本地
+.backup-20260927/
+# Chrome DevTools Protocol 的浏览器 profile（含 cookie / 缓存，体积大且涉隐私）
+frontend/.cdp-profile/
+# 自检/验证脚本的输出日志 —— 实测发现它含运行时注入的密钥值（FINNHUB_API_KEY），
+# 绝不能入库。提交前的密钥扫描正是靠它才发现这个问题。
+backend/_checks_out.txt
+*_checks_out.txt

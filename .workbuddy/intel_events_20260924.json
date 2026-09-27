@@ -1,0 +1,342 @@
+{
+  "agent": "workbuddy",
+  "events": [
+    {
+      "symbol": "NVDA",
+      "occurred_on": "2026-09-16",
+      "category": "product_launch",
+      "title": "CoreWeave 点亮全球首个 Vera Rubin NVL72 多机架集群，Rubin 首次进入客户数据中心",
+      "summary": "9月16日 CoreWeave 在其数据中心点亮多机架 Vera Rubin NVL72 集群，这是 Rubin 平台首次在客户侧数据中心投入生产服务，面向构建 AI Agent 的客户。NVL72 单机架互联 72 颗加速器与 36 颗 Vera CPU，从单机架走向多机架意味着由演示转为生产级服务。同日华硕在日本首次展示基于 Rubin 平台的液冷 AI 服务器，供应链生态同步铺开。Rubin 约于 2026 年 6 月 1 日进入全面量产，下半年开始向伙伴出货。",
+      "impact": 4,
+      "sentiment": "positive",
+      "source_name": "GPLPCN",
+      "source_url": "https://www.gplpcn.com/2026/09/16/nvidias-rubin-chips-reach-data-centers-as-coreweave-switches-on-first-clusters"
+    },
+    {
+      "symbol": "NVDA",
+      "occurred_on": "2026-09-11",
+      "category": "partnership",
+      "title": "印度 Yotta 承诺 120 亿美元采购 8 万颗 Vera Rubin GPU，为公开披露最大 GPU 订单之一",
+      "summary": "9月11日孟买 GPU Future Forum 上，印度云服务商 Yotta Data Services 承诺 120 亿美元部署 8 万颗 NVIDIA Vera Rubin GPU，分置于两座新建数据中心。规格：每颗 Rubin GPU 配 288GB HBM4、约 22TB/s 带宽（约为 Blackwell Ultra HBM3e 8TB/s 的 2.75 倍），TSMC 3nm 双芯粒封装约 3360 亿晶体管、NVFP4 推理约 50 PFLOPS；配套 Vera CPU 为 88 核 Arm Olympus、每插槽 176 线程，经 NVLink-C2C 以约 1.8TB/s 互联。标志 AI 基建重心开始向美国以外的主权/区域算力扩散。",
+      "impact": 4,
+      "sentiment": "positive",
+      "source_name": "FrontierNews.ai",
+      "source_url": "https://www.frontiernews.ai/news/article/indias-yotta-bets-12-billion-on-80000-nvidia-vera-17c91c87"
+    },
+    {
+      "symbol": "NVDA",
+      "occurred_on": "2026-09-15",
+      "category": "other",
+      "title": "SemiAnalysis AgentX 基准：Vera Rubin NVL72 每兆瓦 token 吞吐最高达 GB300 NVL72 的 30 倍",
+      "summary": "SemiAnalysis 于 9 月 15 日发布 AgentX 基准结果，语料为 393 条真实编码 Agent 轨迹（保留真实 prompt 长度、工具调用时序、子 Agent 派生与轮间延迟），中位会话单次请求 142,000 输入 token / 444 输出 token，44% 会话派生子 Agent。结果显示 Vera Rubin NVL72 在 agentic coding 推理负载下，每兆瓦 token 吞吐最高可达英伟达自家 GB300 NVL72 的 30 倍。OpenRouter 对 100 万亿 token 真实流量的分析显示，单次 agentic 请求消耗约为普通聊天交互的 15 倍——这是 Rubin 面向 Agent 时代重构架构的核心依据。",
+      "impact": 4,
+      "sentiment": "positive",
+      "source_name": "FrontierNews.ai（引 SemiAnalysis）",
+      "source_url": "https://www.frontiernews.ai/news/article/indias-yotta-bets-12-billion-on-80000-nvidia-vera-17c91c87"
+    },
+    {
+      "symbol": "NVDA",
+      "occurred_on": "2026-08-26",
+      "category": "regulatory",
+      "title": "英伟达减记 4 亿美元 H200 库存，称中国限制已获许可的 H200 销售",
+      "summary": "8月26日英伟达对 H200 库存计提 4 亿美元减值，并表示中方限制了已获许可的 H200 销售，实际出货仅为许可量的一小部分。背景：2025 年 12 月美国有条件批准 H200 对华出口（附加 25% 销售收入上缴与安全审查），2026 年 1 月 13 日 BIS 将 H200 与 MI325X 由「推定拒绝」改为逐案审查（要求第三方测试审核、中国采购量不超过美国客户 50%、禁军用）；2026 年 5 月 31 日 BIS 进一步封堵总部在中国或澳门的企业经由境外子公司采购。中国同时在推进对英伟达的安全、采购与反垄断行动（2025 年 9 月 SAMR 初步认定违反反垄断法）。黄仁勋已公开承认英伟达在中国高端 AI 芯片市场份额跌至「几乎为零」。",
+      "impact": 3,
+      "sentiment": "negative",
+      "source_name": "whatledto（时间线，更新至 2026-09-18）",
+      "source_url": "https://whatledto.com/events/nvidia-china-export-controls"
+    },
+    {
+      "symbol": "NVDA",
+      "occurred_on": "2026-09-16",
+      "category": "partnership",
+      "title": "Emerald AI、谷歌与英伟达组建「弹性 AI 数据中心」联盟",
+      "summary": "9月16日 Emerald AI、Google 与 NVIDIA 宣布组建联盟，推进「弹性 AI 数据中心」(elastic AI data centers) 概念——让算力随需求上下弹性伸缩，而非建成后闲置。这是行业对「下一前沿是效率而非规模」的确认：在 Rubin 已开始出货、服务器厂商完成配套之后，头部厂商的注意力转向如何让庞大的已装机算力真正产出回报。",
+      "impact": 2,
+      "sentiment": "positive",
+      "source_name": "GPLPCN",
+      "source_url": "https://www.gplpcn.com/2026/09/16/nvidias-rubin-chips-reach-data-centers-as-coreweave-switches-on-first-clusters"
+    },
+
+    {
+      "symbol": "GOOGL",
+      "occurred_on": "2026-09-08",
+      "category": "product_launch",
+      "title": "Ironwood TPU 首次公开定价：12 美元/芯片小时，三年承诺价与按需价价差超 2 倍",
+      "summary": "9月8日 Google Cloud 公布第七代 Ironwood TPU 公开价目：爱荷华区域 12.00 美元/芯片小时、伦敦 13.20 美元。此前 Ironwood 自 4 月 Cloud Next 起已对云客户可用，但只能私下议价，公开价目迟来三个月。规格：单芯片 4.6 PFLOPS、192GB HBM（与英伟达最新数据中心 GPU 大致相当）；9,216 芯片组成的 superpod 聚合 42.5 EFLOPS。对标 NVIDIA B200 约 9.36 美元/GPU 小时（neocloud 按需）、最低 5.35 美元/小时（现货），但谷歌三年承诺使用价与按需价之间存在超 2 倍价差，实际承诺价显著低于名义价。公开定价本身说明 Ironwood 产能已足以竞争价格敏感型推理负载。",
+      "impact": 4,
+      "sentiment": "positive",
+      "source_name": "SmartBrains AI",
+      "source_url": "https://www.smartbrainsai.com/google-finally-prices-its-ironwood-tpu-at-12-an-hour-undercutting-nvidias-b200-on-committed-contracts"
+    },
+    {
+      "symbol": "GOOGL",
+      "occurred_on": "2026-09-08",
+      "category": "product_launch",
+      "title": "预告第八代 TPU 拆分为 TPU 8t（训练）与 TPU 8i（推理），均走 TSMC 2nm，年内 GA",
+      "summary": "谷歌在 Ironwood 定价落地的同时预告第八代 TPU 架构，首次拆分为两款专用芯片：面向大规模模型训练的 TPU 8t 与面向高速推理的 TPU 8i，均计划采用台积电 2nm 制程，预计 2026 年晚些时候正式可用。这一接近年度刷新的迭代节奏明显快于商用 GPU 厂商的多年周期，显示谷歌意图把自研硅路线图作为长期竞争武器而非成本项。",
+      "impact": 3,
+      "sentiment": "positive",
+      "source_name": "SmartBrains AI",
+      "source_url": "https://www.smartbrainsai.com/google-finally-prices-its-ironwood-tpu-at-12-an-hour-undercutting-nvidias-b200-on-committed-contracts"
+    },
+    {
+      "symbol": "GOOGL",
+      "occurred_on": "2026-09-02",
+      "category": "partnership",
+      "title": "Anthropic 成谷歌 TPU 最大外部客户：2026 年 1GW TPU v7、2027 年 5GW v8i、2028 年再增 10GW",
+      "summary": "博通 CEO 陈福阳在 FY2026Q3 电话会披露：博通与 Anthropic 计划 2026 年部署 1GW 的 TPU v7（Ironwood），2027 年部署 5GW 的 TPU v8i，2028 年再新增 10GW；预计 Anthropic 将在 2027–2028 年成为博通最大 XPU 客户。博通同时已领先联发科向谷歌交付第八代训练优化版 TPU（博通负责 v8t，联发科负责推理优化的 v8i），并计划 FY26Q4 大幅提升 v8i 量产速度。对谷歌而言，TPU 正从自用芯片外溢为可对外销售的基础设施资产。SemiAnalysis 估计 2026Q3–2027Q4 期间谷歌超过 20% 的 TPU 出货直接售予 Anthropic。",
+      "impact": 4,
+      "sentiment": "positive",
+      "source_name": "IT时代网（引博通 FY26Q3 电话会）",
+      "source_url": "https://www.163.com/dy/article/L5T5REIO05527PMU.html"
+    },
+    {
+      "symbol": "GOOGL",
+      "occurred_on": "2026-09-16",
+      "category": "partnership",
+      "title": "Emerald AI、谷歌与英伟达组建「弹性 AI 数据中心」联盟",
+      "summary": "9月16日三方宣布组建联盟推进「弹性 AI 数据中心」，目标是让算力随需求弹性伸缩而非闲置。对谷歌而言这是把 TPU 与云的利用率变现路径延伸到需求侧响应的动作，也意味着其与英伟达在基础设施效率层面出现合作而非纯竞争。",
+      "impact": 2,
+      "sentiment": "positive",
+      "source_name": "GPLPCN",
+      "source_url": "https://www.gplpcn.com/2026/09/16/nvidias-rubin-chips-reach-data-centers-as-coreweave-switches-on-first-clusters"
+    },
+
+    {
+      "symbol": "AAPL",
+      "occurred_on": "2026-09-09",
+      "category": "product_launch",
+      "title": "发布 iPhone 18 Pro/Pro Max 与首款折叠屏 iPhone Duo（1999 美元），A20 Pro 为 2nm 芯片",
+      "summary": "9月9日「Surprise and Shine」发布会：iPhone 18 Pro 起售 1199 美元、Pro Max 1299 美元（9/12 预售、9/18 上市），搭载 A20 Pro（苹果首款 2nm iPhone 芯片：6 核 CPU 含 2 个桌面级超大核 + 7 核 GPU 图形渲染快 40%，新增第二颗神经网络引擎使 AI 算力翻倍，内存带宽提升 50%）；Pro Max 视频播放最长 45 小时为历代最大增幅，15 分钟充至 50%。相机为 48MP Fusion 主摄配可变光圈，新增 Reference Image 用 Private Cloud Compute 生成加密参考底片以鉴别 AI 生成/篡改图像。首款折叠屏 iPhone Duo 1999 美元，外屏 5.4 英寸、展开 7.6 英寸（iPhone 史上最大），10/16 预售、10/23 上市——2025 年折叠屏仅占全球手机销量约 1.6%。",
+      "impact": 5,
+      "sentiment": "positive",
+      "source_name": "eWeek",
+      "source_url": "https://www.eweek.com/news/apple-event-2026-iphone-duo-iphone-18-pro-ai/"
+    },
+    {
+      "symbol": "AAPL",
+      "occurred_on": "2026-09-14",
+      "category": "product_launch",
+      "title": "Siri AI 随 iOS 27 开启 beta：跨 30 万+ App 操作，欧盟与中国初期缺席",
+      "summary": "9月14日 Siri AI beta 随 iOS 27 发布，具备个人上下文理解（邮件/信息/照片/日历）、屏幕内容问答、联网实时信息、跨应用执行动作与起草润色，并推出独立 Siri 应用经 iCloud 同步对话历史。苹果称可跨 30 万+ App 工作，支持 iPhone 15 Pro 及全部 iPhone 16 以后机型，重负载路由到 Private Cloud Compute。基础模型为苹果与谷歌 Gemini 合作定制（6 月已披露，本次发布会未重提）。Apple Intelligence 支持 16 种语言但 Siri AI 首发仅英语；iOS/iPadOS/watchOS 上欧盟用户初期不可用（仅 Mac 与 Vision Pro 可用）。Live Rewind 与 Siri Recap 将于 2026 年末以 beta 推出，亦不选欧盟。AirPods 5（129/149 美元）、Watch Series 12（399 美元）与 Ultra 4（799 美元）9/18 上市。",
+      "impact": 4,
+      "sentiment": "positive",
+      "source_name": "FinanceTracked",
+      "source_url": "https://financetracked.com/apple-siri-ai-iphone-18"
+    },
+    {
+      "symbol": "AAPL",
+      "occurred_on": "2026-09-01",
+      "category": "personnel",
+      "title": "John Ternus 9 月 1 日正式接任 CEO，本次发布会为其上任后首战",
+      "summary": "John Ternus 于 2026 年 9 月 1 日从 Tim Cook 手中接任苹果 CEO，9 月 9 日「Surprise and Shine」为其上任后首场主要产品发布会。他在开场即把 AI 置于硬件叙事中心，将 iPhone 定义为「智能个人中枢」，强调默认端侧处理与 Private Cloud Compute 的隐私框架——与苹果此前相对保守的 AI 表态相比是明显转向。值得注意的对照：Forbes 估算苹果 2025 年 AI 资本开支约 120 亿美元，远低于谷歌、亚马逊与 Meta（苹果不单独披露 AI 支出）。",
+      "impact": 3,
+      "sentiment": "neutral",
+      "source_name": "eWeek / FinanceTracked",
+      "source_url": "https://www.eweek.com/news/apple-event-2026-iphone-duo-iphone-18-pro-ai/"
+    },
+    {
+      "symbol": "AAPL",
+      "occurred_on": "2026-09-09",
+      "category": "product_launch",
+      "title": "Apple Intelligence 切入健康与诊断：重塑 Health 应用，接入 Quest Diagnostics 检测套餐",
+      "summary": "重塑的 Health 应用由 Apple Intelligence 驱动，新增 Longevity 标签与 Health Age（可纳入 A1c 与 LDL 指标）；Movement Evaluations 用视觉模型配合 iPhone 摄像头在设备端评估柔韧性、力量与平衡，全程不录像不存储；Cycle Tracking 支持围绝经期与绝经期，40 岁以上用户在记录周期模式提示围绝经期时可收到通知。用户可直接通过 Health 应用预约购买 Quest Diagnostics 的 50+ 项生物标记实验室套餐，售价 119 美元，覆盖约 2000 家门店——苹果在不自建检测能力的前提下切入付费医疗服务。Apple Watch 心率测量加密至每 5 秒一次、HRV 每 5 分钟一次（约为此前频度 24 倍）。",
+      "impact": 2,
+      "sentiment": "positive",
+      "source_name": "FinanceTracked",
+      "source_url": "https://financetracked.com/apple-siri-ai-iphone-18"
+    },
+
+    {
+      "symbol": "META",
+      "occurred_on": "2026-09-08",
+      "category": "product_launch",
+      "title": "个人 AI 助手 Muse 发布，9 月 18 日登顶美国 App Store 总榜第一",
+      "summary": "9月8日发布消费级 AI Agent「Muse」。9月18日 GuruFocus 报道其发布一周多即登顶苹果美国 App Store 榜首，超过 OpenAI 的 ChatGPT 与谷歌的 Gemini。受此推动 META 股价 30 日累计上涨约 25%（8/19 约 546 美元 → 9/17 约 682 美元），9/18 收盘 665.75 美元、市值约 1.70 万亿美元、当日成交 2754 万股。9 月 23 日 Meta Connect 将展示 Muse 及变现路径，是判断 AI 能否转化为广告收入的关键窗口。",
+      "impact": 4,
+      "sentiment": "positive",
+      "source_name": "ad-hoc-news（引 GuruFocus / Tickeron）",
+      "source_url": "https://www.ad-hoc-news.de/boerse/news/corporate-news/meta-platforms-stock-gains-on-ai-app-muse-and-heavy-capex-plans/70130137"
+    },
+    {
+      "symbol": "META",
+      "occurred_on": "2026-09-21",
+      "category": "partnership",
+      "title": "发布跨洋海底电缆「Petal」：首条 petabit 级容量海缆，连接美国与法国",
+      "summary": "Meta 宣布「Petal」海底电缆项目，称其为首条跨洋 petabit 级容量海缆，连接美国与法国，强化其对网络与算力基础设施的自主掌控（此前已有与 Blue Owl 270 亿美元路易斯安那吉瓦级园区、与贝莱德合资 20% 持股的埃尔帕索 1GW 设施等）。监管审批与运营细节尚未披露。同日 Wells Fargo 将 META 目标价由 640 美元上调至 796 美元、维持增持（对 2027 年预估盈利给 25× 估值），股价当日 +10.4%，自 8 月低点反弹约 22%。",
+      "impact": 3,
+      "sentiment": "positive",
+      "source_name": "ROIC AI",
+      "source_url": "https://www.roic.ai/news/meta-shares-surge-104-on-ai-optimism-analyst-upgrade-and-subsea-cable-project-09-21-2026"
+    },
+    {
+      "symbol": "META",
+      "occurred_on": "2026-09-01",
+      "category": "regulatory",
+      "title": "与美国多州达成 180 亿美元青少年安全和解，需强化年龄验证",
+      "summary": "Meta 与美国多个州就社交媒体青少年安全问题达成 180 亿美元和解，要求在 Facebook 与 Instagram 上实施更严格的年龄验证。规模约相当于单季净利水平（Q2 2026 净利 158 亿美元、同比 -14%），但将在数十个季度内摊付，短期现金流压力有限——这也是股价当日仍上涨 1.56% 至 581.29 美元的原因之一。风险未完全出清：2026 年仍有多起美国青少年相关案件排期开庭。Q2 单季已计提 24 亿美元法律费用。",
+      "impact": 3,
+      "sentiment": "negative",
+      "source_name": "ad-hoc-news（引 The Japan Times）",
+      "source_url": "https://www.ad-hoc-news.de/boerse/news/corporate-news/meta-platforms-stock-gains-as-ai-spending-surges-and-legal-settlement/70038410"
+    },
+    {
+      "symbol": "META",
+      "occurred_on": "2026-09-18",
+      "category": "earnings",
+      "title": "Q2 自由现金流同比暴跌 91% 至 7.84 亿美元；内部人 12 个月净卖出 2.09 亿美元且零买入",
+      "summary": "现金流与治理双重压力：Q2 2026 资本开支 311 亿美元同比翻倍以上，自由现金流仅 7.84 亿美元（同比 -91%），运营利润率由 43% 压缩至 31%；总费用同比 +55%（含 24 亿法律费用、11.8 亿遣散费，对应 8000 人裁员），EPS 6.18 美元低于共识 14.42%，终结六季度连续超预期。资本开支指引下限由 1250 亿上调至 1300 亿美元（上限 1450 亿不变）。GuruFocus 显示截至 9/18，内部人过去 12 个月净卖出 2.094 亿美元、期间无买入记录；股价 672.12 美元较其 GF Value 估计 854.33 美元低 21.3%。媒体披露 Meta 与数据中心、云容量及相关基建挂钩的未来合同承诺近 7000 亿美元，其中服务器与网络设备不可撤销义务 3490 亿美元。",
+      "impact": 3,
+      "sentiment": "negative",
+      "source_name": "ad-hoc-news（引 GuruFocus / 24-7 Wall St）",
+      "source_url": "https://www.ad-hoc-news.de/boerse/news/corporate-news/meta-platforms-stock-gains-on-ai-app-muse-and-heavy-capex-plans/70130137"
+    },
+
+    {
+      "symbol": "AMZN",
+      "occurred_on": "2026-09-18",
+      "category": "partnership",
+      "title": "亚马逊追加 50 亿美元投资 Anthropic（后续最多再 200 亿），换回十年超 1000 亿美元 AWS 支出与 5GW Trainium 容量",
+      "summary": "9月18日宣布：亚马逊即刻向 Anthropic 投资 50 亿美元，另有最多 200 亿美元与商业里程碑挂钩的后续投资（叠加此前 80 亿，累计股权投资最多达 330 亿美元）。对价是 Anthropic 承诺未来十年在 AWS 技术上支出超 1000 亿美元（约合年均 100 亿，为其 4 月年化收入 300 亿的约三分之一），涵盖 Trainium2/3/4 及未来世代与数千万颗 Graviton 核心，并锁定最高 5GW 容量，其中大规模 Trainium3 容量预计年内上线、2026 年底前 Trainium2+3 合计接近 1GW。运营数据：Bedrock 大部分推理已跑在 Trainium 上，Trainium 与 Graviton 各有超 10 万客户，超 10 万客户在 AWS 上运行 Claude；Claude Platform 将原生接入 AWS 账号与账单体系。Anthropic 与 Annapurna Labs 深度协同优化未来 Trainium。",
+      "impact": 5,
+      "sentiment": "positive",
+      "source_name": "The Clarity（引亚马逊官方公告）",
+      "source_url": "https://theclarity.today/story/amazon-announces-5b-anthropic-investment-up-to-20b-more-fd46568c"
+    },
+    {
+      "symbol": "AMZN",
+      "occurred_on": "2026-09-06",
+      "category": "earnings",
+      "title": "AWS 合同加权剩余期限由 4.0 年拉长至 6.4 年，OpenAI 追加 1000 亿美元八年承诺",
+      "summary": "AWS 截至 2026 年 6 月 30 日积压订单约 4960 亿美元，较 3 月约 3640 亿、2025 年中约 1950 亿大幅增长（同比 +154%，单季跳增 1320 亿）；长期合同加权平均剩余期限在截至 6/30 的 12 个月内由 4.0 年拉长至 6.4 年，锁定度显著提升。同期披露 OpenAI 在既有 380 亿美元承诺之上追加 1000 亿美元、为期八年的扩展。两条风险线：其一，Anthropic 仍为私营、数据自报（4 月年化收入超 300 亿、7 月底 650 亿），其 IPO 招股书将是首个可审计的偿付能力验证；其二，亚马逊对 Anthropic 最多 330 亿的股权投资与后者的 AWS 采购承诺形成循环交易，收入质量需打折看待。",
+      "impact": 4,
+      "sentiment": "positive",
+      "source_name": "Pivot News（引 Motley Fool）",
+      "source_url": "https://pivotnews.ai/five/anthropic-s-100-billion-aws-pledge-faces-its-first-audit"
+    },
+    {
+      "symbol": "AMZN",
+      "occurred_on": "2026-09-22",
+      "category": "macro",
+      "title": "四巨头 2026 年 AI 资本开支合计约 7300 亿美元（同比 +78%），亚马逊 2200 亿居首；高盛预计 2027 年近 1.14 万亿",
+      "summary": "汇总口径：2026 年亚马逊约 2200 亿、Alphabet 1950–2050 亿、Meta 1300–1450 亿、微软约 1750 亿美元，四家合计约 7300 亿美元，较 2025 年约 4100 亿增长约 78%；高盛预计 2027 年合计接近 1.14 万亿美元。支出结构：GPU 集群 40–50%、数据中心建设 25–35%、网络 10–15%、电力与冷却 10–15%、自研芯片 5–10%。对亚马逊的具体指向：AWS 数据中心扩张、Trainium2/Inferentia 自研硅、Alexa+ 基于基础模型栈重建所需的推理容量，以及为 Anthropic 专设的训练容量。",
+      "impact": 3,
+      "sentiment": "neutral",
+      "source_name": "Value Add VC",
+      "source_url": "https://valueaddvc.com/blog/big-tech-ai-capex-in-2025-microsoft-google-meta-amazon-and-the-spending-race"
+    },
+
+    {
+      "symbol": "TSLA",
+      "occurred_on": "2026-09-03",
+      "category": "product_launch",
+      "title": "Cybercab 在奥斯汀正式投入商业运营：无方向盘无踏板 L4，每英里成本约 0.2 美元",
+      "summary": "9月3日特斯拉在得州奥斯汀宣布 Cybercab 正式商业运营，为全球首款原生无人驾驶量产出租车：无方向盘、无油门刹车踏板、无后视镜，全车仅两座 + 一块中控屏，保留紧急停止按钮。硬件：整备质量 1412kg、风阻系数 0.19、48kWh 电池包、EPA 续航约 673 公里、百公里能耗约 10.2 度（EPA 认证史上能耗最低量产车）；技术路线为纯视觉，HW4.0 + FSD V14 端到端神经网络，8 颗高清摄像头，不依赖激光雷达与高精地图。经济性是核心：官方预计每英里成本降至约 0.2 美元（约 0.84 元/公里），为行业平均的约十分之一。当日 TSLA 收盘 376.37 美元、+5.42%。9 月中旬在北京、上海等多城展出（仅展示，不涉及在华销售或运营）。局限：目前仅奥斯汀限定区域，特斯拉未公布其他城市、量产规模与面向消费者的发售时间。",
+      "impact": 5,
+      "sentiment": "positive",
+      "source_name": "中国经营报（网易）",
+      "source_url": "https://c.m.163.com/news/a/L6ERK38L05199NHJ.html"
+    },
+    {
+      "symbol": "TSLA",
+      "occurred_on": "2026-09-07",
+      "category": "product_launch",
+      "title": "Optimus V3 量产爬坡：2026 年约 1.5 万台，9 月底达约 1000 台/周",
+      "summary": "供应链报告（9月7日）显示 Optimus 2026 年产量约 1.5 万台，9 月底产能提升至约 1000 台/周，首批投向特斯拉「Optimus Academy」训练场景，目标售价 2–3 万美元。战略要点：Cybercab 与 Optimus 共用 AI5 芯片 + FSD 视觉栈 + Cortex 2.0 训练后端，是同一 AI 平台的两种物理形态——每一美元的 FSD 投入同时改善两条业务线；为两者供芯的 Terafab 超级晶圆厂计划 12 月 1 日动工。2026 年约 200 亿美元资本开支同时覆盖两个项目。风险同样集中：共享平台意味着任一环节延期会同时冲击两条叙事。",
+      "impact": 4,
+      "sentiment": "positive",
+      "source_name": "OptimusK（引 NextBigFuture / Motor1）",
+      "source_url": "https://optimusk.blog/blog/tesla-optimus-robotaxi-2026-strategy"
+    },
+    {
+      "symbol": "TSLA",
+      "occurred_on": "2026-08-20",
+      "category": "other",
+      "title": "摩根大通调研：FSD v15 是 Robotaxi 规模化的关键开关，约 40% 核心模块已在车队测试",
+      "summary": "摩根大通实地调研弗里蒙特工厂并与 IR 团队会面后称：管理层将 FSD v15 定性为阶跃式升级（可比 v13→v14 的参数量大幅增加、上下文窗口扩展与约 20% 延迟降低），v15 共七项核心技术，约 40% 已在 Robotaxi 车队中测试且初步反馈积极；公司有意控制 Model Y 向 Robotaxi 车队的转化数量，显示对 Cybercab 近期可规模化交付的信心。Optimus 方面 Gen 3 设计已定稿、供应链基本锁定，Fremont 产线安装中，SoP 后目标 2026 下半年进入 Optimus Academy 训练阶段，最早 2027 下半年对外商业销售。维持中性评级、目标价 445 美元（报告时股价 339.30）。判断 Robotaxi 车队扩张将在 2026 年底至 2027 年初明显加速。",
+      "impact": 3,
+      "sentiment": "positive",
+      "source_name": "腾讯证券（引摩根大通）",
+      "source_url": "https://gu.qq.com/resources/shy/news/detail-v2/index.html?id=SN20260820064446a4b5e5bd"
+    },
+
+    {
+      "symbol": "AVGO",
+      "occurred_on": "2026-09-02",
+      "category": "product_launch",
+      "title": "OpenAI 首代定制芯片 Jalapeño 已出货，能效 1.9 倍于 Blackwell；2027 年 1.3GW、2028 年超 5GW",
+      "summary": "陈福阳在 FY26Q3 电话会披露：OpenAI 首代定制加速器 Jalapeño 已于第三季度出货，在延迟、吞吐量与功耗上优于英伟达 Grace Blackwell Ultra，实际工作负载下性能与 Vera Rubin GPU 相当；Hot Chips 2026 披露其能效约为 Blackwell 架构的 1.9 倍（每瓦性能 1.5–1.9 倍、响应速度快 1.7–3.6 倍），从启动到流片仅约 9 个月。部署路线图：2027 年 1.3GW、2028 年超 5GW（含即将流片的后继芯片），有望成为博通第二大 XPU 客户，第三代 XPU 已在开发中。陈福阳的核心论断：针对特定大模型负载优化的定制芯片「性能将超越任何 GPU，且能以 GPU 一半的成本完成相同任务」。英伟达回应称多数定制 XPU 只服务单一云与单一推理服务，而英伟达提供覆盖 AI 全生命周期的完整 AI 工厂平台。",
+      "impact": 5,
+      "sentiment": "positive",
+      "source_name": "极客网 / 科技棱镜",
+      "source_url": "https://www.fromgeek.com/ai/726536.html"
+    },
+    {
+      "symbol": "AVGO",
+      "occurred_on": "2026-09-02",
+      "category": "partnership",
+      "title": "六大 XPU 客户名单披露：谷歌/Meta/OpenAI/Anthropic/字节/富士通，Q3 XPU 出货同比增超 3.5 倍",
+      "summary": "博通 XPU 项目现有六家客户：谷歌、Meta、OpenAI、Anthropic、字节跳动、富士通，均按其模型架构与负载共同定制设计。Q3 AI 芯片收入 167 亿美元中约 73% 来自定制 XPU 而非标准品，XPU 出货量同比增长超 3.5 倍。Meta 路线：未来 16 个月内交付三代 MTIA 加速器，至 2028 年底累计部署 3GW。谷歌路线：Ironwood（TPU v7）大批量交付中，下一代 TPU v8i 已开始出货，长期协议下未来数年每年向谷歌交付数百亿美元规模 TPU。网络侧：基于以太网的 Tomahawk Ultra 被广泛用于 XPU 与 GPU 集群互连，正在瓦解 InfiniBand 的封闭协议壁垒。",
+      "impact": 4,
+      "sentiment": "positive",
+      "source_name": "byteiota",
+      "source_url": "https://byteiota.com/broadcom-q3-2026-custom-ai-chips-hit-16-7b-as-xpus-break-nvidias-grip"
+    },
+    {
+      "symbol": "AVGO",
+      "occurred_on": "2026-09-02",
+      "category": "macro",
+      "title": "定制 AI 芯片从备选变主战场：Jalapeño 9 个月流片，AI 辅助两周完成 Redwood 加速器设计",
+      "summary": "9 月第一周行业关键词由「拼参数、拼跑分」转向「拼定制、拼能效」：博通 FY26Q3 AI 半导体收入 167 亿美元（同比 +221%），OpenAI 与博通合作的 Jalapeño 在 Hot Chips 2026 披露 1.9 倍于 Blackwell 的能效；同时美国公司 Architect Labs 用 AI 在不到两周内端到端设计出 Redwood 推理加速器，并已在 FPGA 上跑通 Qwen3-0.6B。含义：芯片设计周期被 AI 压缩，定制 ASIC 的进入门槛下降，长期看将进一步分流通用 GPU 的推理份额；短期验证信号是 2027 上半年博通 AI 半导体收入能否达到分析师预期节奏（客户部署进度超当前指引 80% 以上则分流概率显著上升）。",
+      "impact": 3,
+      "sentiment": "neutral",
+      "source_name": "今日头条·科技棱镜",
+      "source_url": "https://m.toutiao.com/article/7681644569343099446"
+    },
+
+    {
+      "symbol": "AMD",
+      "occurred_on": "2026-09-08",
+      "category": "earnings",
+      "title": "Citi TMT 大会：MI450 量产出货 Q3 启动，2027 年数据中心目标约 700 亿美元，AI 市场机会上修至 2030 年 2 万亿",
+      "summary": "9月8日 Citi 2026 全球 TMT 大会管理层表态：MI450 生产出货自 Q3 2026 开始，Q4 显著放量、2027Q1 再上台阶；MI400 计划 2027 下半年推出并在 2028 年成为主力。Q3 指引营收约 130 亿美元 ±3 亿（同比约 +41%、环比约 +13%），non-GAAP 毛利率约 56%（Q4 与 2027 年随 MI450 放量将小幅走低，TTM 55.7%）。服务器 CPU 收入 2026 下半年同比 +80% 以上、2027 年 +70% 以上；数据中心业务 2027 年翻倍至约 700 亿美元（其中 AI GPU 约 400 亿出头）；服务器 CPU 市场 2030 年看至 2200 亿美元（原估 600 亿），agentic AI 占其中一半以上；AI 市场总机会上修至 2030 年 2 万亿美元。已锁定 290–300 亿美元采购承诺，并获得台积电客户中最大幅度的产能分配提升。主要瓶颈：先进制程晶圆、HBM、先进封装与基板。",
+      "impact": 5,
+      "sentiment": "positive",
+      "source_name": "Finance Review Daily（引 Citi TMT 大会）",
+      "source_url": "https://financereviewdaily.com/en/article/amd-lifts-ai-outlook-as-mi450-ramp-begins-and-data-center-target-rises"
+    },
+    {
+      "symbol": "AMD",
+      "occurred_on": "2026-09-21",
+      "category": "macro",
+      "title": "9 月 21 日股价大涨 9.95% 至 615.52 美元创历史新高，市值突破 1 万亿美元",
+      "summary": "9月21日 AMD 股价上涨 9.95% 至 615.52 美元（盘中触及 613.92 美元纪录），市值短暂突破 1 万亿美元，此前为五日连涨。催化剂是 Meta 的 Muse AI 助手登顶美国 App Store 重燃 agentic AI 基建热情，带动半导体板块普涨。2026 年内至 9/21 累计涨幅约 185%（另有口径为 +219%），大幅跑赢纳指。对照：9 月 9 日收盘 521.10 美元时年内涨幅为 143.32%。能否守住万亿市值取决于 MI450/Helios 部署兑现、数据中心增速与利润率，而非单一交易日的情绪。",
+      "impact": 4,
+      "sentiment": "positive",
+      "source_name": "Kalkine / SKN Finance",
+      "source_url": "https://kalkine.com/news/technology/how-amd-nasdaqamd-hit-a-1-trillion-market-value"
+    },
+    {
+      "symbol": "AMD",
+      "occurred_on": "2026-09-15",
+      "category": "personnel",
+      "title": "内部人上季卖出超 1.05 亿美元含总裁 9/15 减持；静态市盈率约 158 倍",
+      "summary": "治理与估值信号：过去一个季度 AMD 内部人卖出超过 1.05 亿美元股票，包括总裁 Forrest Norrod 于 2026 年 9 月 15 日的减持与董事 Nora Denzel 在 5 月底至 6 月初的出售（多通过预设计划执行）。估值层面：615.52 美元对应 TTM 每股收益 5.76 美元、约 158 倍静态市盈率，PEG 约 0.486；华尔街共识目标价 615.38 美元（4 强烈买入 / 39 买入 / 11 持有 / 0 卖出）——即股价已基本触及共识目标。另据 9 月中报道 AMD 拟对部分 GPU 与 CPU 提价约 10%，为原计划外的毛利率杠杆。三大结构性风险：客户集中与循环交易（OpenAI 认股权证最多 1.6 亿股、行权价 1 美分，与部署里程碑及股价挂钩，2030 年前可行权）、Helios 首个整机架系统的执行风险、以及估值对 2027/2028 年未兑现业绩的预支。",
+      "impact": 3,
+      "sentiment": "negative",
+      "source_name": "VantagePoint Software",
+      "source_url": "https://www.vantagepointsoftware.com/blog/stock-of-the-week-amd-september-2026"
+    },
+    {
+      "symbol": "AMD",
+      "occurred_on": "2026-09-09",
+      "category": "macro",
+      "title": "Cathie Wood 在 Helios 放量前减持；三大客户合计锁定 14GW 部署",
+      "summary": "ARK Invest 的 Cathie Wood 在 AMD 大涨后减持，减仓动作发生在 MI450 发布与 Helios 机架系统放量之前；截至 2026 年 4 月 30 日 AMD 为 ARKK 第三大持仓（占净值 5.18%）。基本面：Q2 2026 营收 115 亿美元（同比 +50%），数据中心 67.2 亿美元（+107%），数据中心经营利润由上年同期亏损 1.55 亿转为盈利 21 亿，non-GAAP EPS 1.66 美元；Q3 指引约 130 亿美元。客户承诺合计 14GW：OpenAI 6GW（首批 1GW MI450 于 2026 下半年上线）、Meta 最多 6GW（定制 MI450）、Anthropic 最多 2GW（2027 上半年起）；另有 Oracle 5 万颗 MI450 超算集群、微软在 Azure 部署 Helios 做前沿模型推理、HPE 供应 Helios 托盘。Helios 集成 EPYC Venice + MI450 + Pensando 网络 + Rackham 软件。",
+      "impact": 2,
+      "sentiment": "neutral",
+      "source_name": "el fondo",
+      "source_url": "https://www.el-fondo.com/en/news/amd-faces-ark-trimming-ahead-of-helios-ramp"
+    }
+  ]
+}

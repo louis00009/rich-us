@@ -1,0 +1,35 @@
+# ============================================================
+#  QuantDesk for IBKR — 后端依赖
+#  安装:  python -m venv .venv && .venv/Scripts/pip install -r requirements.txt
+# ============================================================
+
+# ---- Web 框架 ----
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+pydantic>=2.9.0
+python-multipart>=0.0.12
+websockets>=13.1
+
+# ---- 存储 ----
+SQLAlchemy>=2.0.35
+
+# ---- 安全 ----
+PyJWT>=2.9.0
+bcrypt>=4.2.0
+cryptography>=43.0.0
+
+# ---- 量化 / 数据 ----
+pandas>=2.2.3
+numpy>=2.0.0
+yfinance>=0.2.54
+httpx>=0.27.2
+
+# ---- 券商接入 (IBKR) ----
+ib_async>=1.0.3
+
+# ============================================================
+#  可选增强 (安装后自动启用，未安装则回退到内置纯 numpy 实现)
+# ============================================================
+# lightgbm>=4.5.0        # 梯度提升 alpha 模型
+# scikit-learn>=1.5.0    # 交叉验证与特征标准化
+# statsmodels>=0.14.0    # ADF 协整检验 (回退: 内置 numpy ADF)

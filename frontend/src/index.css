@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-50 text-slate-800 antialiased;
+  font-feature-settings: 'tnum' 1, 'cv02' 1, 'cv03' 1;
+}
+
+/* ---------- 滚动条 ---------- */
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-slate-300;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-400;
+}
+
+/* ---------- 数字对齐 ---------- */
+.num {
+  font-variant-numeric: tabular-nums;
+  @apply font-mono;
+}
+
+/* ---------- 卡片 ---------- */
+.card {
+  @apply rounded-xl border border-slate-200 bg-white shadow-card;
+}
+.card-hd {
+  @apply flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3;
+}
+.card-bd {
+  @apply p-4;
+}
+
+/* ---------- 表格 ---------- */
+.tbl {
+  @apply w-full border-collapse text-sm;
+}
+.tbl thead th {
+  @apply whitespace-nowrap border-b border-slate-200 bg-slate-50/80 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500;
+}
+.tbl tbody td {
+  @apply whitespace-nowrap border-b border-slate-100 px-3 py-2 text-slate-700;
+}
+.tbl tbody tr:hover {
+  @apply bg-slate-50;
+}
+
+/* ---------- 输入 ---------- */
+.inp {
+  @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition
+    placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 disabled:bg-slate-100;
+}
+.lbl {
+  @apply mb-1.5 block text-xs font-medium text-slate-600;
+}
+
+/* ---------- 动效 ---------- */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.live-dot {
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
+@keyframes skeleton {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #eef2f7 25%, #f8fafc 50%, #eef2f7 75%);
+  background-size: 200% 100%;
+  animation: skeleton 1.3s linear infinite;
+}
