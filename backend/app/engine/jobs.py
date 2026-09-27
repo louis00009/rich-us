@@ -145,3 +145,15 @@ def cancel(job_id: str) -> bool:
 def active_count() -> int:
     with _lock:
         return sum(1 for v in _jobs.values() if v["status"] == "running")
+
+
+def shutdown() -> None:
+    """显式关闭任务线程池（由 main.py 的 lifespan 收尾调用）。
+
+    P3：`ThreadPoolExecutor` 的线程**不是 daemon**，且注册了 atexit 钩子会 join
+    所有线程 —— 若退出时仍有卡在网络的任务（如网格寻优），进程会被拖住无法退出。
+    """
+    try:
+        _executor.shutdown(wait=False, cancel_futures=True)
+    except Exception:  # noqa: BLE001 —— 关闭失败不应影响进程退出
+        pass

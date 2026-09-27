@@ -398,7 +398,11 @@ export default function AICopilot() {
                               <span className="text-xs text-slate-500">S{i + 1}</span>
                               <span className="num text-sm font-semibold text-emerald-700">{fmtNum(v, 2)}</span>
                               <span className="num text-xs text-slate-500">
-                                {(((v - active.price) / active.price) * 100).toFixed(2)}%
+                                {/* P3：旧实现直接除以 active.price —— 价格为 0 时输出
+                                    "Infinity%" / "NaN%"。这里显式兜底。 */}
+                                {active.price
+                                  ? `${(((v - active.price) / active.price) * 100).toFixed(2)}%`
+                                  : '—'}
                               </span>
                             </div>
                           ))
@@ -419,7 +423,10 @@ export default function AICopilot() {
                               <span className="text-xs text-slate-500">R{i + 1}</span>
                               <span className="num text-sm font-semibold text-rose-700">{fmtNum(v, 2)}</span>
                               <span className="num text-xs text-slate-500">
-                                {(((v - active.price) / active.price) * 100).toFixed(2)}%
+                                {/* P3：同支撑位 —— 价格为 0 时不得输出 Infinity/NaN */}
+                                {active.price
+                                  ? `${(((v - active.price) / active.price) * 100).toFixed(2)}%`
+                                  : '—'}
                               </span>
                             </div>
                           ))

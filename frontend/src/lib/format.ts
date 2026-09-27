@@ -143,17 +143,20 @@ export const METRIC_LABEL: Record<string, string> = {
 
 export type MetricFmt = 'pct' | 'ratio' | 'num' | 'int' | 'money'
 
+// P3：这三个集合提到模块级 —— 旧实现在**每次调用**时新建 3 个 Set，
+// 而 fmtMetric 会在指标表的渲染循环里被反复调用（几十个指标 × 每次渲染）。
+const PCT_KEYS = new Set([
+  'total_return', 'cagr', 'excess_cagr', 'volatility', 'max_drawdown', 'win_rate',
+  'avg_exposure', 'var95_daily', 'cvar95_daily', 'alpha', 'benchmark_cagr',
+  'benchmark_max_drawdown', 'best_month', 'worst_month', 'benchmark_total_return',
+])
+const INT_KEYS = new Set(['trades', 'max_dd_days', 'max_consec_loss'])
+const MONEY_KEYS = new Set(['expectancy', 'final_equity', 'best_trade', 'worst_trade'])
+
 export function fmtMetric(key: string, v: any): string {
-  const pctKeys = new Set([
-    'total_return', 'cagr', 'excess_cagr', 'volatility', 'max_drawdown', 'win_rate',
-    'avg_exposure', 'var95_daily', 'cvar95_daily', 'alpha', 'benchmark_cagr',
-    'benchmark_max_drawdown', 'best_month', 'worst_month', 'benchmark_total_return',
-  ])
-  const intKeys = new Set(['trades', 'max_dd_days', 'max_consec_loss'])
-  const moneyKeys = new Set(['expectancy', 'final_equity', 'best_trade', 'worst_trade'])
-  if (pctKeys.has(key)) return fmtRatioPct(v, 2, true)
-  if (intKeys.has(key)) return v === null || v === undefined ? '—' : String(Math.round(Number(v)))
-  if (moneyKeys.has(key)) return fmtMoney(v, 2)
+  if (PCT_KEYS.has(key)) return fmtRatioPct(v, 2, true)
+  if (INT_KEYS.has(key)) return v === null || v === undefined ? '—' : String(Math.round(Number(v)))
+  if (MONEY_KEYS.has(key)) return fmtMoney(v, 2)
   if (key === 'turnover') return `${fmtNum(v, 2)}x`
   return fmtNum(v, 2)
 }

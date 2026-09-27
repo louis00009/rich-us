@@ -33,6 +33,24 @@ for _d in (CACHE_DIR, LOG_DIR, STRATEGY_DIR):
 FRONTEND_DIST = (BACKEND_DIR.parent / "frontend" / "dist").resolve()
 
 
+def _strip_env_value(raw: str) -> str:
+    """解析 .env 的值：去掉**成对**引号；未加引号时按行内注释截断。
+
+    P3：旧实现是 `val.strip().strip("'\\"")`，有两个问题：
+      · 不处理行内注释 —— `KEY=abc  # 说明` 会把注释一起当成值；
+      · strip 会误删值里合法的首尾引号（例如 base64 值以 `"` 结尾）。
+    现在：带成对引号 → 取引号内原文；否则以「空白 + #」处截断。
+    """
+    s = raw.strip()
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in ("'", '"'):
+        return s[1:-1]
+    for i, ch in enumerate(s):
+        # 要求 # 前是空白，避免误伤 URL 里的 #fragment
+        if ch == "#" and (i == 0 or s[i - 1].isspace()):
+            return s[:i].rstrip()
+    return s
+
+
 def _load_dotenv() -> None:
     """极简 .env 加载器（避免额外依赖）。已存在的环境变量优先。"""
     for candidate in (RUNTIME_DIR / ".env", BACKEND_DIR / ".env"):
@@ -43,8 +61,7 @@ def _load_dotenv() -> None:
             if not line or line.startswith("#") or "=" not in line:
                 continue
             key, _, val = line.partition("=")
-            key, val = key.strip(), val.strip().strip("'\"")
-            os.environ.setdefault(key, val)
+            os.environ.setdefault(key.strip(), _strip_env_value(val))
 
 
 _load_dotenv()

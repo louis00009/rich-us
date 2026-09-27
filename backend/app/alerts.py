@@ -7,10 +7,11 @@
 """
 from __future__ import annotations
 
+import concurrent.futures as cf
 import hashlib
 import threading
 import time
-from datetime import datetime as _dt, timezone as _tz
+from datetime import datetime as _dt, timedelta as _td, timezone as _tz
 from typing import Any
 
 from .config import settings
@@ -286,11 +287,23 @@ def scan(force: bool = False) -> dict[str, Any]:
     events: list[dict[str, Any]] = []
     from .data_provider import fetch_history
 
-    for sym in symbols:
+    # P3（新-2）：**并行**扫描。旧实现是串行 for —— 每个标的要拉「日线 + 实时报价 +
+    # 新闻」三路网络，yfinance 限流时单个标的可等 20s，全量扫描实测达 102s
+    # （TODO 施工日志已记为遗留问题）。这里把「单标的」整体丢进受限线程池并发执行，
+    # 再按 symbols 原顺序拼接，保证事件顺序与旧实现一致。
+    # ⚠️ 修复既有缺陷（本次并行化时暴露）：`_dt` 是 `datetime` **类**（不是模块），
+    # `_dt.timedelta` 恒抛 AttributeError。旧实现这行写在 `try/except: pass` 里，
+    # 异常被静默吞掉 → **`_tech_alerts` 从未执行过**，52周高低/放量/跳空/RSI/摆动
+    # 等全部技术类提示实际上一直是死的（只有日内与新闻类在工作）。
+    # 这正是「静默吞异常会掩盖代码缺陷」的实证案例。
+    start = (_dt.now(_tz.utc) - _td(days=420)).strftime("%Y-%m-%d")
+
+    def _scan_one(sym: str) -> list[dict[str, Any]]:
+        out: list[dict[str, Any]] = []
         market = _market_of(sym)
         try:
-            df, _src = fetch_history(sym, start=(_dt.now(_tz.utc) - _dt.timedelta(days=420)).strftime("%Y-%m-%d"))
-            events.extend(_tech_alerts(sym, market, df))
+            df, _src = fetch_history(sym, start=start)
+            out.extend(_tech_alerts(sym, market, df))
         except Exception:  # noqa: BLE001
             pass
         try:
@@ -301,15 +314,24 @@ def scan(force: bool = False) -> dict[str, Any]:
             if quote is None:
                 quote = get_quote(sym)
             if quote:
-                events.extend(_intraday_alerts(sym, market, quote))
+                out.extend(_intraday_alerts(sym, market, quote))
         except Exception:  # noqa: BLE001
             pass
         try:
             from .news import fetch_news
+
             res = fetch_news(sym, limit=5)
-            events.extend(_news_alerts(sym, market, res["items"]))
+            out.extend(_news_alerts(sym, market, res["items"]))
         except Exception:  # noqa: BLE001
-            continue
+            pass
+        return out
+
+    if symbols:
+        with cf.ThreadPoolExecutor(
+            max_workers=min(8, len(symbols)), thread_name_prefix="qd-alert"
+        ) as ex:
+            for part in ex.map(_scan_one, symbols):
+                events.extend(part)
 
     saved = record_events(events)
     return {

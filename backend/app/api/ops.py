@@ -54,7 +54,12 @@ def ops_overview(user: CurrentUser, include_decisions: int = Query(20, ge=0, le=
 
     # 账户与持仓（券商不可用时如实报错，不猜）
     try:
-        broker = get_broker()
+        # P3：与**下单通道保持同源**。旧实现直接 `get_broker()`（吃默认配置），
+        # 而 paper 模式下真实下单走的是内置模拟券商 —— overview 展示的账户
+        # 可能与实际下单通道不是同一个。这里复用 trading 的路由逻辑。
+        from .trading import _broker_and_mode
+
+        broker, _bmode = _broker_and_mode()
         acc = broker.account()
         out["account"] = {
             "connected": acc.connected, "equity": acc.equity, "cash": acc.cash,

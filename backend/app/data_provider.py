@@ -171,6 +171,23 @@ UNIVERSE_MAP = {s.symbol: s for s in UNIVERSE}
 # ------------------------------------------------------------------
 _yahoo_search_cache: dict[str, tuple[float, list[dict[str, str]]]] = {}
 _YAHOO_SEARCH_TTL = 600.0
+# P3：失败（空结果）只做短 TTL 负缓存 —— 旧实现按正常 TTL 缓存空结果，
+# 一次网络抖动会让该关键词在 10 分钟内始终搜不到，恢复被掩盖。
+_YAHOO_SEARCH_FAIL_TTL = 60.0
+_CACHE_CAP = 2048
+
+
+def _bounded_set(d: dict, key: Any, value: Any, cap: int = _CACHE_CAP) -> None:
+    """向模块级缓存写入并限制容量（超出时按插入顺序淘汰最旧的键）。
+
+    P3：这些缓存是模块级 dict，键来自用户输入的 symbol / 搜索词 ——
+    不设上限时长时间运行会被慢慢撑大，且没有任何淘汰机制。
+    """
+    d.pop(key, None)          # 先删再插，刷新插入顺序（用于 FIFO 淘汰）
+    d[key] = value
+    if len(d) > cap:
+        for k in list(d.keys())[: len(d) - cap]:
+            d.pop(k, None)
 
 _KIND_MAP = {
     "EQUITY": "STK", "ETF": "ETF", "INDEX": "IDX", "CRYPTOCURRENCY": "CRYPTO",
@@ -183,8 +200,11 @@ def _yahoo_search(q: str, limit: int) -> list[dict[str, str]]:
     key = f"{q.upper()}|{limit}"
     now = time.time()
     hit = _yahoo_search_cache.get(key)
-    if hit and now - hit[0] < _YAHOO_SEARCH_TTL:
-        return hit[1]
+    if hit:
+        # 空结果走短 TTL（见 _YAHOO_SEARCH_FAIL_TTL 注释）
+        ttl = _YAHOO_SEARCH_TTL if hit[1] else _YAHOO_SEARCH_FAIL_TTL
+        if now - hit[0] < ttl:
+            return hit[1]
     out: list[dict[str, str]] = []
     try:
         r = httpx.get(
@@ -202,11 +222,11 @@ def _yahoo_search(q: str, limit: int) -> list[dict[str, str]]:
             name = str(qt.get("longname") or qt.get("shortname") or "")
             exch = str(qt.get("exchDisp") or qt.get("exchange") or "")
             out.append({"symbol": sym, "name": f"{name} [{exch}]" if exch else name, "kind": kind})
-        _yahoo_search_cache[key] = (now, out)
+        _bounded_set(_yahoo_search_cache, key, (now, out))
     except Exception as exc:  # noqa: BLE001 —— 搜索失败静默，本地结果兜底
         _last_errors["yahoo-search"] = f"{type(exc).__name__}: {exc}"[:160]
-        _yahoo_search_cache[key] = (now, [])
-    return _yahoo_search_cache[key][1]
+        _bounded_set(_yahoo_search_cache, key, (now, []))
+    return _yahoo_search_cache.get(key, (now, []))[1]
 
 
 def search_symbols(q: str, limit: int = 20) -> list[dict[str, str]]:
@@ -416,9 +436,12 @@ def _from_stooq(symbol: str, start: str, end: str | None) -> pd.DataFrame:
     """Stooq 免费日线 CSV。仅日线可用。"""
     d1 = start.replace("-", "")
     d2 = (end or datetime.now().strftime("%Y-%m-%d")).replace("-", "")
-    url = f"https://stooq.com/q/d/l/?s={_stooq_symbol(symbol)}&d1={d1}&d2={d2}&i=d"
+    # P3：symbol 来自用户输入，旧实现直接拼进 URL 查询串 —— 含 & / ? / # 时
+    # 会改变查询语义（等于注入额外参数）。改用 params 让 httpx 负责编码。
+    params = {"s": _stooq_symbol(symbol), "d1": d1, "d2": d2, "i": "d"}
     with httpx.Client(timeout=settings.data_timeout_sec, follow_redirects=True) as c:
-        r = c.get(url, headers={"User-Agent": "Mozilla/5.0 QuantDesk"})
+        r = c.get("https://stooq.com/q/d/l/", params=params,
+                  headers={"User-Agent": "Mozilla/5.0 QuantDesk"})
     if r.status_code != 200 or "Date" not in r.text[:200]:
         return pd.DataFrame(columns=OHLCV)
     df = pd.read_csv(io.StringIO(r.text))
@@ -768,6 +791,13 @@ def _chain_key(symbol: str, interval: str) -> str:
 def _chain_cooling(symbol: str, interval: str) -> bool:
     ts = _chain_fail_at.get(_chain_key(symbol, interval))
     if ts is None:
+        # P3：顺手清理过期条目 —— 旧实现只在失败时新增，过期键永不删除，
+        # 键空间 = symbol × interval，长期运行会缓慢膨胀。
+        if len(_chain_fail_at) > _CACHE_CAP:
+            now = time.time()
+            for k in [k for k, v in _chain_fail_at.items()
+                      if now - v >= _chain_cooldown_sec(k.rsplit("|", 1)[-1])]:
+                _chain_fail_at.pop(k, None)
         return False
     # 日线/周线冷 30 分钟；日内周期 = min(TTL, 300s)：1m 线只冷 60s，
     # 保证实时引擎的分钟数据不会被失败冷却冻太久。
@@ -1038,14 +1068,16 @@ def get_quote(symbol: str, prefer: str | None = None) -> dict:
         qt = _from_tencent_hk_quote(symbol)
         if qt:
             if prefer is None:
-                _quote_cache[symbol] = (time.time(), qt)
+                # P3：走有界写入 —— _quote_cache 的键来自用户输入的 symbol，
+                # 无上限时长时间运行会持续增长且无淘汰。
+                _bounded_set(_quote_cache, symbol, (time.time(), qt))
             return qt
     df, src = fetch_history(
         symbol, start=(datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d"), interval="1d", prefer=None
     )
     q = _quote_from_df(df, symbol, src)
     if prefer is None and q.get("price", 0) > 0:
-        _quote_cache[symbol] = (time.time(), q)
+        _bounded_set(_quote_cache, symbol, (time.time(), q))
     return q
 
 
@@ -1065,6 +1097,18 @@ def get_quotes(symbols: Iterable[str], prefer: str | None = None) -> list[dict]:
         return [get_quote(s, prefer=None) for s in syms]
     # P2-12：复用模块级受限线程池，不再每次新建（见 _QUOTE_POOL 注释）
     return list(_QUOTE_POOL.map(lambda s: get_quote(s, prefer=None), syms))
+
+
+def shutdown_pools() -> None:
+    """显式关闭报价线程池（由 main.py 的 lifespan 收尾调用）。
+
+    P3：`ThreadPoolExecutor` 的线程非 daemon，atexit 会 join —— 退出时若还有
+    卡在网络的报价任务，进程会被拖住。
+    """
+    try:
+        _QUOTE_POOL.shutdown(wait=False, cancel_futures=True)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def clear_cache() -> int:

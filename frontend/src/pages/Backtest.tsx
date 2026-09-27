@@ -793,8 +793,14 @@ export default function Backtest() {
                       className="rounded p-1 text-slate-300 hover:bg-rose-50 hover:text-rose-500"
                       onClick={async (ev) => {
                         ev.stopPropagation()
-                        await api.del(`/backtest/${r.id}`)
-                        loadHistory()
+                        // P3：旧实现没有 try/catch —— 删除失败会产生 unhandled rejection，
+                        // 且界面上毫无提示，用户会以为已经删掉了。
+                        try {
+                          await api.del(`/backtest/${r.id}`)
+                          loadHistory()
+                        } catch (e: any) {
+                          toast('error', `删除失败：${e?.message || e}`)
+                        }
                       }}
                     >
                       <Trash2 className="h-3.5 w-3.5" />

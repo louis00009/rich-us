@@ -37,6 +37,24 @@ IBKR 券商适配层（基于 ib_async）
 """
 from __future__ import annotations
 
+
+def _silent(exc: BaseException, where: str) -> None:
+    """记录「几乎必然是代码缺陷」的异常（审查新-3）。
+
+    本文件有十余处 `except Exception: pass/continue` —— 对券商 API 而言这是合理的
+    容错策略（超时、限流、字段缺失都可能发生）。但它们会**连带吞掉代码缺陷**：
+    项目历史上就因此漏掉过 `_from_yf` 的 NameError（静默、零输出、极难排查）。
+
+    这里只对下面几类「基本只可能是 bug」的异常发声；网络/超时/业务异常保持静默，
+    避免把日志刷成噪声。
+    """
+    if isinstance(exc, (NameError, UnboundLocalError, TypeError, AttributeError)):
+        import logging
+
+        logging.getLogger("quantdesk.ibkr").warning(
+            "[ibkr] %s 吞掉疑似代码缺陷：%s: %s", where, type(exc).__name__, exc
+        )
+
 import asyncio
 import concurrent.futures
 import datetime as dt
@@ -301,8 +319,8 @@ class IBKRBroker(Broker):
             loop = self._ensure_loop()
             fut = asyncio.run_coroutine_threadsafe(asyncio.sleep(float(secs)), loop)
             fut.result(timeout=float(secs) + 2.0)
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as exc:  # noqa: BLE001 —— 睡不成不致命，但缺陷要留痕
+            _silent(exc, "_sleep")
 
     # ================================================================
     # 连接管理
@@ -318,7 +336,8 @@ class IBKRBroker(Broker):
     def connected(self) -> bool:
         try:
             return bool(self._connected and self._ib is not None and self._ib.isConnected())
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001 —— 失败按「未连接」处理，但缺陷要留痕
+            _silent(exc, "connected")
             return False
 
     def connect(self) -> tuple[bool, str]:
@@ -536,7 +555,8 @@ class IBKRBroker(Broker):
         try:
             ref = mksym.parse(symbol)
             key = ref.symbol
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001 —— 回退原样大写，但缺陷要留痕
+            _silent(exc, "get_tick")
             key = str(symbol or "").strip().upper()
         return self._ticks.get(key)
 

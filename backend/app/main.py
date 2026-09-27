@@ -153,6 +153,17 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
             await task.stop()
     except Exception:  # noqa: BLE001
         pass
+    # P3：显式关闭两个线程池。ThreadPoolExecutor 的线程**非 daemon**，且注册了
+    # atexit 钩子会 join 所有线程 —— 若退出时仍有卡在网络的任务（网格寻优 /
+    # 批量报价），进程会被拖住无法退出。cancel_futures 顺带取消排队中的任务。
+    try:
+        from .data_provider import shutdown_pools
+        from .engine import jobs as _jobs
+
+        _jobs.shutdown()
+        shutdown_pools()
+    except Exception:  # noqa: BLE001
+        pass
     # 关闭 AI 情报调度线程（不关 run 状态，下次启动按 monitor_enabled 自恢复）
     try:
         from . import intel as _intel

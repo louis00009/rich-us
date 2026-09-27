@@ -42,7 +42,12 @@ def drawdown_series(equity: pd.Series) -> pd.Series:
 
 
 def max_drawdown(equity: pd.Series) -> tuple[float, int, str, str]:
-    """返回 (最大回撤(负数), 最长回撤持续天数, 回撤开始日, 回撤最低点日)。"""
+    """返回 (最大回撤(负数), 最长水下期 **bar 数**, 回撤开始日, 回撤最低点日)。
+
+    注意：第二个返回值是 **bar 计数**而非日历天数（日线回测下两者近似，
+    但分钟/小时周期下差异巨大）。指标标签已改为「最长水下期(bar)」，
+    此处注释同步修正 —— 旧注释写「天数」，与实现不符。
+    """
     if len(equity) < 2:
         return 0.0, 0, "", ""
     peak = equity.cummax()
@@ -78,14 +83,26 @@ def cagr(equity: pd.Series) -> float:
 
 
 def period_returns(equity: pd.Series) -> pd.Series:
-    return equity.pct_change().fillna(0.0)
+    """逐 bar 收益率。
+
+    P3：必须清理 ±inf。权益序列出现 0（空头巨亏 / 停牌估值异常）时，
+    `pct_change()` 会产生 ±inf，而下游 `_safe()` 会把它静默吞成 0 ——
+    结果是 Sharpe / 波动率 / Alpha 全部变成 0 却没有任何报错，
+    比直接抛异常更难排查。
+    """
+    return equity.pct_change().replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
 
 def sharpe(ret: pd.Series, rf: float = 0.0, ppy: float = TRADING_DAYS) -> float:
-    if len(ret) < 3 or ret.std(ddof=1) == 0:
+    # P3：用阈值而非浮点精确比较 —— `std == 0` 在浮点下几乎永不成立，
+    # 而极小的标准差会让比率爆炸成天文数字。同时挡掉 NaN / inf。
+    if len(ret) < 3:
+        return 0.0
+    sd = float(ret.std(ddof=1))
+    if not np.isfinite(sd) or sd < 1e-12:
         return 0.0
     excess = ret - rf / ppy
-    return float(excess.mean() / ret.std(ddof=1) * np.sqrt(ppy))
+    return float(excess.mean() / sd * np.sqrt(ppy))
 
 
 def sortino(ret: pd.Series, rf: float = 0.0, ppy: float = TRADING_DAYS) -> float:
