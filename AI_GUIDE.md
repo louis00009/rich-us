@@ -79,6 +79,7 @@ POST /api/ops/proposals/{id}/reject    ← 人工拒绝（记入决策日志）
 | 读榜单 | `GET /api/market/rankings?sort=change_pct&limit=50` | 无风险 |
 | 读新闻/公告 | `GET /api/news?symbol=0700.HK` | 无风险 |
 | AI 分析 | `POST /api/ai/analyze`（结果自动落决策日志） | 无风险 |
+| AI 助手（16 类任务） | `POST /api/ai/assist`、`GET /api/ai/tasks` | 无风险，只读数据 + 生成文本 |
 | **试算订单** | `POST /api/trading/preview` | 无风险，永远先 preview 再下单 |
 | **下单** | `POST /api/trading/order` | 必过风控护栏；实盘需环境变量+运行时解锁双重开关 |
 | 撤单 | `POST /api/trading/cancel/{order_id}`、`/cancel-all` | 不可逆 |
@@ -139,6 +140,70 @@ QD_AI_MODEL=gpt-4o-mini                      # deepseek-chat / moonshot-v1-8k / 
 切换模型 = 改 `.env` 一行 + 重启。每次分析的决策日志都会记下当时用的模型名，
 因此**不同模型的判断历史天然可对比**。
 
+**层面一之二：AI 任务中枢（`/api/ai/assist`）—— 平台内建的 16 个 AI 接入点**
+
+除了「AI 研判 / AI Copilot」，平台里还有 16 处功能点接入了 AI。它们**共用同一个入口**，
+不需要你为每个功能点单独写接口：
+
+```bash
+GET  /api/ai/tasks                       # 列出全部 AI 任务（key / 标题 / 说明）
+POST /api/ai/assist
+     {"task": "backtest_diagnose",       # 任务名，见下表
+      "payload": { ...该任务需要的真实数据... },
+      "model": "",                       # 空 = 跟随「设置 → AI 分析」的全局模型
+      "force_local": false}              # true = 跳过 LLM，只要规则化兜底
+→ {"task":"…","title":"…","engine":"llm"|"local","text":"…","facts":{…},"llm_error":"…","data":{…}}
+```
+
+`data` 只在**结构化任务**里出现（登记时给了 `parse` 钩子）—— 目前只有 `smart_screen`，
+它返回可直接作用到榜单筛选面板的条件。
+
+| task | 用在哪 | 需要什么 payload |
+|---|---|---|
+| `symbol_brief` | 行情页 · AI 个股快评 | `{symbol, horizon?}` |
+| `news_digest` | 新闻面板 · AI 新闻要点 | `{symbol, items?}`（不给 items 则后端自己抓） |
+| `ranking_review` | 榜单页 · AI 候选池点评 | `{rows[], matched?, score_min?, sort?}` |
+| `market_briefing` | 首页 · AI 盘面简报 | `{quotes[], account?, positions?}` |
+| `backtest_diagnose` | 回测页 · AI 回测诊断 | `{strategy, symbols, metrics, params?}` |
+| `optimize_review` | 优化页 · AI 寻优解读 | `{best, best_metrics?, baseline?, top_neighbors?}` |
+| `strategy_draft` | 策略实验室 · AI 策略草稿 | `{description}` |
+| `risk_review` | 风控中心 · AI 风控体检 | `{config, exposure?, positions?}` |
+| `portfolio_review` | 持仓页 · AI 组合点评 | `{positions[], account?, exposure?}` |
+| `order_diagnose` | 实盘页 / AIOps · 订单诊断 | `{orders[], limits?, mode?}` |
+| `intel_brief` | 公司情报 · AI 情报解读 | `{symbol, events[], pipeline?}` |
+| `stock_batch_review` | 榜单页 · 勾选 1 只/多只 → 深度分析 / 横向对比 | `{rows[], context?}`（≤12 只） |
+| `smart_screen` | 榜单页 · 智能选股（自然语言 → 筛选条件） | `{query, sectors?[], sorts?[]}` → 返回 `data.filters` |
+| `proposal_review` | AI 接管中心 · 批准前的**反方质询** | `{proposal, limits?, positions[]?, account?, mode?}` |
+| `period_review` | 持仓页 · 交易复盘（盈亏归因 + 决策链条问题） | `{orders[], positions[]?, account?, decisions[]?, period?}` |
+| `strategy_code_review` | 策略实验室 · 自定义策略**代码审查**（未来函数） | `{code}` |
+
+设计约定（改代码时请遵守）：
+
+1. **数据不编造**：payload 必须来自平台真实数据；后端只做裁剪与校验，
+   大模型只做归纳与判断（提示词里已写死「不得编造价格/财报/新闻」）。
+2. **降级可用**：未配置 LLM 时，每个任务都有确定性的**规则化兜底**，
+   返回 `engine="local"`；页面不会空白也不会报错。因此前端**不需要**区分两种模式。
+3. **AI 只有建议权**：所有任务的提示词都显式禁止输出「买入/卖出信号」；
+   交易动作仍必须走 `ai_proposals` + 人工批准（§2.6）。
+4. **可追溯**：分析/诊断类任务（`symbol_brief`/`backtest_diagnose`/`optimize_review`/
+   `risk_review`/`portfolio_review`/`order_diagnose`/`proposal_review`/`period_review`/
+   `strategy_code_review`）会写入 `decision_logs`（action=`ASSIST`）；
+   纯展示类的简报只写审计日志，避免刷屏决策历史。
+5. **新增接入点**：在 `backend/app/ai_tasks_market.py`（行情类）/
+   `ai_tasks_analysis.py`（分析类）/ `ai_tasks_ops.py`（运营类）/
+   `ai_tasks_screen.py`（选股类）/ `ai_tasks_strategy.py`（策略类）里写一个
+   `_b_xxx`（构造上下文与提示词）+ `_l_xxx`（规则化兜底），再 `_register(...)` 登记即可，
+   **不需要改 API 层**；前端用 `<AIAssist task="xxx" payload={...} />` 一行接入。
+   需要**结构化结果**（给前端消费）的任务，额外传 `parse=_extract_json`。
+   新增任务后记得同步三处守卫：`frontend/scripts/render-check.mjs` 的 `AI_TASKS`
+   与 `AI_POINTS`，以及 `tests/run_checks.py` 的 `ai` 子集。
+6. **推理型模型的 token 预算（重要，勿改小）**：`_MIN_TOKEN_BUDGET=6144`。
+   实测当前网关的 `cn:glm-5.3-flash` 是推理模型，**每次先烧掉 1800~3200 token 思维链**，
+   正文还要 ~1000-1500。预算给小了会返回 **HTTP 200 但 content 为空**（`finish_reason=length`），
+   表现为「AI 一直转圈然后显示本地兜底」。`max_tokens` 超过 6144 反而会让网关 502。
+   同时 `_LLM_TIMEOUT=180s`（默认 90s 会卡在边界，慢调用变成 ReadTimeout）。
+   **绝不允许** `engine="llm"` 却展示本地兜底文案 —— 要么真 LLM 文本，要么标 `local` + `llm_error`。
+
 **层面二：外部 Agent（如 Claude/其他助手）直接操作平台**
 不需要平台内嵌任何 SDK —— 你（Agent）只需：
 1. 登录拿 token（§1）；
@@ -162,6 +227,7 @@ QD_AI_MODEL=gpt-4o-mini                      # deepseek-chat / moonshot-v1-8k / 
 | 交易路径延迟 | `GET /api/system/latency` |
 | 决策历史 | `GET /api/ops/decisions` |
 | 回测历史 | `GET /api/backtest/runs` |
+| AI 能力清单 | `GET /api/ai/tasks` |
 
 ## 8. 一个标准的接管会话（示例流程）
 
@@ -187,14 +253,32 @@ curl -s ".../api/ops/decisions?symbol=AAPL&limit=20" -H "Authorization: Bearer $
 
 - **铁律 9 · 文件规模与组件化**：软上限（**超过就不得再加功能**）后端/页面 **600 行**、
   组件 **400 行**；硬上限（**冻结，只修 bug**）后端/页面 **900 行**、组件 **600 行**。
-  当前已冻结：`brokers/ibkr.py` 1804、`pages/Intel.tsx` 1269、`intel.py` 1192、
-  `pages/LiveTrading.tsx` 1170、`engine/live.py` 1151、`data_provider.py` 1129、
-  `pages/Backtest.tsx` 1086、`engine/stream.py` 1062。
+  ⚠️ **不要再维护「冻结清单」** —— 2026-09-29 已证伪并删除：旧清单写 `intel.py` 1192（实际 **1916**）、
+  写 `Backtest.tsx` 1086（实际 **1641**），而 `Intel.tsx` 早就拆到 329 却还挂在清单上。
+  **靠人记的清单 = 不存在的规则。** 唯一事实源是**棘轮守卫**，跑它：
+
+  ```bash
+  cd backend && .venv/Scripts/python.exe ../tests/run_checks.py size   # 秒级，不联网不碰库
+  ```
+
+  判定：① 超软上限且**不在基线** → FAIL（新债）；② 在基线但**比基线更长** → FAIL（棘轮被突破）；
+  ③ 在基线且未增长 → 通过；④ 已降到软上限内 → 提示从基线摘掉。基线 `tests/size_baseline.json`，
+  重算用 `python tools/gen_size_baseline.py` —— ⚠️ **只在真正拆分完成后跑**，否则等于把债锁死。
+  ⚠️ **守卫报 FAIL ≠ 要重算基线**：若 FAIL 的文件**不是你改的**（并行会话在改），**保持 FAIL**，
+  把别人的增长写进基线会让棘轮彻底失效。
   新功能必须**按组件 / 模块拆开写**：前端页面只做编排（取数 + 布局 + 状态），
   可复用业务块抽到 `components/`，重复出现的卡片/表格/表单块**禁止复制粘贴**；
   后端路由文件只做参数校验与编排，业务逻辑放 `engine/` 或独立模块。
 - **铁律 10 · datetime 口径**：naive/aware 混合口径是**已知且已决定不改**的状态，
   **不要再当 bug 报**。写代码时不要假设从 DB 读出的时间字段带时区。
+- **前端「人话词典」与共享零件**（2026-09-29 起）：给界面加术语悬浮解释**一律走
+  `frontend/src/components/terms/`**（查词用 `index.ts` 的 `term()`，**不要另写一份气泡实现** ——
+  那份实现里的 portal + `position:fixed` 修法必须只有一处）。词条三段式
+  （是什么 / 怎么看 / 注意），**正文是纯文本**，写 `**加粗**` 会在气泡里显示字面星号
+  （render-check 的「文案卫生」会拦）。表单排版零件 `components/form/parts.tsx`
+  （`Chip`/`Step`/`Section`）。做「小白友好化」页面时的标准三件套：**分步向导 +
+  新手模式默认开（高级项折叠、但不删）+ 每个术语可悬停**，外加跑前「本次要做什么」人话预览、
+  跑后一句话结论（判定逻辑**抽成纯函数**并加单元断言）。已做：回测中心、组合优化。
 
 改动完成后必须自证：
 

@@ -203,9 +203,10 @@
 
      | 类型 | 软上限 | 硬上限 |
      |---|---|---|
-     | 后端模块 `backend/app/**/*.py` | 600 | 900 |
-     | 前端页面 `src/pages/*.tsx` | 600 | 900 |
-     | 前端组件 `src/components/*.tsx` | 400 | 600 |
+     | 后端模块 `backend/app/**`（`.py`） | 600 | 900 |
+     | 前端页面 `frontend/src/pages/**`（`.tsx`） | 600 | 900 |
+     | 前端组件 `frontend/src/components/**`（`.tsx`/`.ts`） | 400 | 600 |
+     | 前端工具 `frontend/src/lib/**`（`.ts`） | 400 | 600 |
 
    - **写新代码的规矩**：
      - 新建文件不得超软上限；往已有文件加功能前，**先看它是否已超软上限** ——
@@ -215,23 +216,27 @@
        禁止复制粘贴。**
      - **后端**：路由文件（`api/*.py`）只做参数校验与编排；业务逻辑放 `engine/`
        或独立模块，按职责拆（数据获取 / 撮合 / 券商适配 / 编排 各自独立）。
-   - **当前已超硬上限的冻结清单**（只允许修 bug，禁止再加功能）：
+   - **规则已可执行（2026-09-29 补 —— 此前只是「写在文档里」，实测清单全部过期）**：
 
-     | 文件 | 行数 |
-     |---|---|
-     | `backend/app/brokers/ibkr.py` | 1804 |
-     | `frontend/src/pages/Intel.tsx` | 1269 |
-     | `backend/app/intel.py` | 1192 |
-     | `frontend/src/pages/LiveTrading.tsx` | 1170 |
-     | `backend/app/engine/live.py` | 1151 |
-     | `backend/app/data_provider.py` | 1129 |
-     | `frontend/src/pages/Backtest.tsx` | 1086 |
-     | `backend/app/engine/stream.py` | 1062 |
+     本条的旧「冻结清单」已被证伪并删除：清单写 `backend/app/intel.py` 1192 行，实际 **1916**；
+     `Backtest.tsx` 写 1086，实际 **1641**；而 `Intel.tsx` 写 1269（已拆完，实际 **329**，在限内）。
+     **靠人记的清单 = 不存在的规则。** 现在改为**棘轮（ratchet）守卫**：
 
-     （另有 11 个前端页面 / 3 个组件 / 3 个后端模块处于「超软上限但未到硬上限」区间，
-     同样按规矩：**新功能不得再往里加**。）
+     ```bash
+     cd backend && .venv/Scripts/python.exe ../tests/run_checks.py size   # 秒级，不联网不碰库
+     ```
+
+     - 判定：① 超软上限且**不在基线** → FAIL（新债）；② 在基线但**比基线更长** → FAIL（棘轮被突破）；
+       ③ 在基线且未增长 → 通过（存量债在报告里列出）；④ 已降到软上限内 → 提示从基线摘掉。
+     - 基线文件 `tests/size_baseline.json`（存量债基线，**2026-09-29 冻结时 27 个 → 同日晚 21 个**：
+       `Backtest.tsx` 1641→491、`Optimize.tsx` 861→345 已拆分并摘除，详见施工日志）；
+       重算用 `python tools/gen_size_baseline.py` —— ⚠️ **只在真正拆分完成后跑**，否则等于把债锁死。
+     - ⚠️ **守卫报 FAIL 不等于「要重算基线」**：同期 `Market.tsx`(972→1017) 与 `Rankings.tsx`(656→658)
+       的增长来自**并行会话**，守卫如实报 FAIL 是正确行为。把别人的增长写进基线 = 让棘轮失效。
+     - 规则实现见 `tests/size_check.py`。⚠️ 注意它的文件发现用 `rglob` 而非 `Path.glob(".../**/*.py")`：
+       后者在本机 Python 上**不匹配顶层文件**，会漏掉 `intel.py` 这个最大的违规者。
    - **拆分纪律**：一次只拆一个文件；每拆一步立刻跑
-     `run_checks.py strategies|optimize|api` + `tsc` + `vite build` + `smoke`；
+     `run_checks.py strategies|optimize|api|size` + `tsc` + `vite build` + `smoke`；
      **覆写整个文件前必须先核对它全部的既有导出** —— 本项目已两次因此丢函数
      （`get_profile` 被 Write 覆盖删除，导致 `/market/rankings/profile` 500）。
 10. **datetime 口径：维持现状，不统一**（2026-09-27 决策，**不要再当 bug 提**）：
@@ -254,6 +259,124 @@
 - 验收：SPY 分时回退 2026-09-23（390 根，is_today=false）；0700.HK 今日盘中 85 根实时（tencent-hk-m1）；日线 realtime=true 末根实时价 ✅
 
 ## 施工日志（倒序追加）
+
+- 2026-09-29 深夜：**组合优化页「小白友好化」+ 术语/排版模块提升 + 规模债真还**。承前一条（回测中心小白化），用户说「可以 继续做吧」，于是把同一套做法复制到优化页，并顺手把两个共享模块从业务目录里提出来。
+
+  **① 术语词典与排版零件提升为共享模块（先做，因为它是优化页的前置）**
+  - 回测页的 `components/backtest/glossary.ts` + `TermTip.tsx` → **`components/terms/`**（`glossary.ts` 通用+回测 351 行、`optimize.ts` 优化专属 187 行、`index.ts` 合并入口 50 行、`TermTip.tsx` 102 行）。
+  - `components/backtest/parts.tsx`（Chip/Step/Section）→ **`components/form/parts.tsx`**。
+  - 理由：优化页要用同一本词典、同一套零件，去 `import` 一个 `backtest/` 下的东西是**反向依赖**，迟早各自漂移出副本。8 个回测组件的 import 路径同步更新，render-check 路径与文案卫生清单同步。
+  - ⚠️ **合并词典时显式检测重名并抛错**：`{...A, ...B}` 裸合并会让后写的词条**静默覆盖**先写的解释，界面上不报任何错。第一次合并就抓到一处（`interval` 在两个领域文件里都有），已删重。这类问题构建/typecheck/渲染全都拦不住，所以让它直接炸。
+
+  **② 优化页：861 → 345 行（页面软上限 600）**
+  - 拆成 `components/optimize/`：`ConfigPanel`(341) / `ResultPanel`(370) / `FrontierTab`(70) / `PlainSummary`(307) / `SaveModal`(62) / `presets`(92) / `types`(100)。页面只留状态 + 取数 + 组装。
+  - 新增 `lib/optimizePrefs.ts`（标的池/风险预算的严格解析 + 配置持久化）、`lib/dateRange.ts`（`yearsAgo`，从 `backtest/presets.ts` 提出 —— 优化页也要用，复制一份等于让「UTC 会得到昨天」这个坑各自漂移一次）。
+  - 三件套照搬回测页：**① 四步向导**（放哪些标的 → 想要什么效果 → 用多长历史 → 限制条件）；**② 新手模式默认开**（协方差估计 / 期望收益估计 / 相关簇阈值 / 单簇上限 / 风险预算收进 `<details>`，关掉即全量平铺 —— 功能一个没删）；**③ 每个术语都能悬停**（新增 25 条优化专属词条，数值门槛全部取自后端 `_OBJECTIVE_META` / `_COV_META` / `portfolio_stats`，不是编的经验值）。
+  - **一句话结论 = 有没有打赢等权基准**（页面自己的注释就写着「打不过就别优化」）。判定抽成纯函数 `summarizeOptimize`，判定口径：夏普差 >0.05 算赢、<-0.05 算输、±0.05 内算打平（不把估计噪声当能力）；目标本身就是等权 → `not_opt`；约束无解 → `infeasible`。
+  - **诚实性**：全部标的是合成行情 → 判定 `unknown` 并明说「随机生成的假价格，没有任何参考价值」；部分合成 → 保留结论但点名是哪几个；缺夏普字段 → `unknown` + 如实说缺什么，**绝不按 0 编造**。
+
+  **③ 守卫**
+  - `render-check.mjs` 新增 Optimize 条目（**+69 条**，总数 163 → **232**）：四步骨架、术语触发器、21 个术语 id 全覆盖、优化目标 key 与后端 `OBJECTIVES` 对齐、标的池可解析性、自由文本解析（大写归一/去重/保序/剔除垃圾/丢弃 NaN 预算）、以及 **15 条 `summarizeOptimize` 纯函数断言**（含合成行情与缺字段两条诚实性）。
+  - 新增 `scripts/visual-check-optimize.mjs`（`npm run test:visual:optimize`）：**44/44** 真实 Chrome，含「气泡不被祖先 overflow 裁掉」「关掉新手模式后高级项平铺且推荐按钮消失」「一键推荐真的填进表单（按 label 定位，不用 `input[type=number]`）」「真跑一次优化后结论卡片按人话渲染」「三个 tab 都能切」。
+  - 顺手修了 3 处新断言暴露的问题：`termTips` 必须写**词条的 title**（我写了「开始日期」而词条 title 是「起始日期」）；「没打赢等权」这句结论原本写在 JSX 里、纯函数断言不到 → 移进 `caveats`；新写的 `PlainSummary` 里有一个 `**加粗**` 漏进了模板字符串（被文案卫生检查抓住）。
+
+  **④ 规模债**
+  - `size_baseline.json` 摘掉 `Optimize.tsx: 861`（与前一日的 `Backtest.tsx: 1641` 同理）。存量债 **27 → 21**。
+  - `run_checks.py size` 仍报 `Market.tsx`(972→1017) 与 `Rankings.tsx`(656→658) 两项 FAIL —— **并行会话的改动，不是本轮**，按规矩**没有重算基线**（把别人的增长写进基线会让棘轮失效）。已把这条判断写进 TODO 铁律 9。
+
+  **回归**：`typecheck` / `lint:hooks` / `build` 全绿；`test:topics` 10/10；`test:render` **232/232**；`test:visual:optimize` **44/44**、`test:visual:backtest` **45/45**（术语模块搬运后复验）；`run_checks.py size` 无新增超限文件。
+
+- 2026-09-29：**回测中心「小白友好化」重构（用户驱动的体验改造）**。用户原话：「回测中心对于我（小白）来说太难用了，很多东西我都不懂，**基准标的和标的我理解不了**，希望把这套东西尽可能简化、设计得易于理解，并且**针对一些词汇都有鼠标悬浮的解释**」。三条诉求分别落地：
+
+  - **① 简化**：`Backtest.tsx` **1641 → 491 行**（同时解决超硬上限），拆成「编排层 + `components/backtest/*` 12 个文件」。视觉上从「一屏参数墙」变成**四步向导**：用哪个策略 → 买哪些股票 → 回测多长时间 → 本金与及格线。
+  - **② 易于理解**：**新手模式默认开**，高级项（数据周期/数据源/手续费/滑点/止损止盈/仓位算法）收进 `<details>`；关掉即全量平铺 —— **功能一个没删**（有断言守着「折叠区内容仍在 DOM 里」）。小白看不懂的两个词直接改名：**「标的」→「股票代码（标的）」**、**「基准标的」→「对比基准（及格线）」**，并解释成「什么都不做的对照组」。
+  - **③ 悬浮解释**：新建人话词典，词条按**「是什么 / 怎么看 / 注意」**三段写（生活化类比 + 可执行动作 + 只写会让人误判的坑），覆盖配置项、23 个结果指标、交易明细列与三个进阶工具。
+  - **顺带抓到两个构建/typecheck/lint/SSR 全都拦不住的真 bug**：① **编造结论** —— 历史记录缺 `benchmark_total_return` 时 `Number(undefined) → 0`，页面显示「同期基准是 +0.0%，你跑赢了」；改为 `Number.isFinite` 存在性判断 + `verdict='unknown'` + 明说「没有存基准数据」，并把判定逻辑抽成纯函数 `summarizeResult` 直接单元断言。② **符号误导** —— 指标表给所有百分比都加了 `+`，导致「年化波动 **+**9.26%」看着像收益；改为只有真正有方向的指标才带符号。
+  - **行为改动**：因子诊断弹窗**打开不再自动跑**（必须点「开始诊断」）—— 用 CDP 的 `Network` 域数真实请求次数验证（DOM 断言区分不了「自动」与「手动」）。
+  - **回归**：`test:render` **161/161**（回测页贡献 42 项）、新增 `test:visual:backtest` **45/45**。
+  - 文档/记忆：`FIXES_2026-09-27.md` 新增 **C-9**（P2-14 从「立规矩」到「真还债」，含棘轮守卫与被证伪的旧冻结清单）、`REFERENCE.md` 新增 **§R17**。
+
+- 2026-09-27 ⅩⅥ：**「对交易/调研真正有意义」的 AI 接入点补全 + 修一个未来函数漏洞**。用户诉求：再找找还有哪些地方值得接 AI，但**只做对实盘交易或调研有决策价值的**，不要到处加。
+  
+  **先做审计，再动手**：把 14 个页面 + 16 个 API 模块 + 策略引擎全过了一遍，按「是否影响真金白银或研究结论」筛出 3 个值得做、5 个明确劝退（纯展示页、每张图配点评、语料级情绪面板、财报日风险窗口、策略衰减诊断 —— 后两个缺数据管线，不建）。结论：值得做的是**批准前的反方质询**、**交易复盘**、**策略代码审查**。
+
+  **⚠️ 顺带挖出一个真 bug（非 AI，性质严重）**
+  - `strategies/custom.py::_operand_df` 的 `shift` **没有正负校验**：规则里写 `shift: -1` 会取到**未来一根**的值 → 直接构成未来函数，且能通过 API 提交、静默产出一条漂亮但虚假的回测曲线。这是**铁律 2 的实打实漏洞**。
+  - 修法：`_validate_cond` 里拒绝负 shift / 非整数 shift（`RuleStrategy.__init__` 每次构造都会调 `validate_rule`，因此保存期与执行期都覆盖），`_operand_df` 里再加一道兜底 raise（防将来重构绕过校验后静默读未来数据）。
+  - 回归：`tests/run_checks.py` 的 `strategies` 子集加 8 条断言（shift=-1/-60/1.5/True/'x' 必须拒绝，0/1/5 必须放行）。**前端本来就没暴露 shift**，所以漏洞仅 API 可达 —— 但仍必须堵。
+
+  **后端（新 1 文件 + 3 个任务，任务总数 16）**
+  - `app/ai_tasks_ops.py` 新增 `proposal_review`（提案二次研判）。核心是 `_proposal_checks()` —— **先确定性算出冲突再交给 LLM**，不让模型去猜本可以算准的数字：加仓后超单标的上限 / 总敞口超限 / 持仓数已满 / 未设止损 / 限价偏离现价 / RSI 超买追多 / 与本地引擎 bias 方向矛盾 / 无仓却卖出。提示词固定扮演**反方**（devil's advocate），并要求「若批准，最坏情况是什么」。规则结果同时作为本地兜底。兼容 `/ops/overview`（positions 无 `weight`）与 `/trading/positions` 两种口径 —— 缺 weight 时按 `市值/权益` 反推，否则超限检查会**静默失效**。
+  - `app/ai_tasks_analysis.py` 新增 `period_review`（交易复盘）。`_period_stats()` 把订单/持仓/决策压成确定性统计量：成交与异常笔数、买卖比、标的集中度、手续费、**被拒原因频次**（同一 code 反复出现 = 配置问题而非偶发）、赢家/输家数。样本 < 20 笔时明确写「统计意义有限」。
+  - `app/ai_tasks_strategy.py`（**新模块**，`ai_tasks_ops/analysis` 都已逼近 600 软上限，按领域再拆一层）新增 `strategy_code_review`。**补的是沙箱的盲区**：AST 白名单只查安全性、**不查时间语义**，`ctx.closes.shift(-1)` 能顺利通过校验。这里用 8 条高置信度模式（`shift(-N)`、`pct_change(-N)`、`bfill/backfill`、`fillna(method='bfill')`、`rolling(center=True)`、`interpolate()`、`iloc[i+1]`、`[::-1]`）确定性检测，LLM 只做解释与补充。
+  - `api/ai.py`：`_DECISION_TASKS` 加入 3 个新任务（提案复核直接参与批准决策链，必须可追溯）。
+
+  **前端（新 5 文件 + 1 次拆分）**
+  - ⚠️ **先拆后加（铁律 9）**：`pages/Strategies.tsx` 已 **912 行，超硬上限 900**（冻结线）。抽出 3 个组件：`components/strategies/ParamForm.tsx`（105）、`ruleEditor.tsx`（202，含 OPS/指标白名单/CondRow/condToSpec）、`CodeStrategyEditor.tsx`（Python 代码标签页）。页面 **912 → 551**，回到 600 软上限以内。拆分**一次一个文件**，每步跑 typecheck。
+  - `components/ProposalAiReview.tsx`：自包含，批准按钮旁一行。自己拉 `/risk/config` + `/trading/positions` + `/trading/account`（`/ops/overview` 的持仓不含 weight），鼠标移入刷新，避免用过期持仓复核。`AIOps.tsx` 只加 1 行挂载。
+  - `components/PeriodReviewAi.tsx`：订单/持仓/账户由 Portfolio 传入（已加载，不重复请求），决策日志自己拉。与既有的「组合点评」并列 —— **组合点评看「当下快照」，交易复盘看「一段过程」**。
+  - `components/strategies/StrategyCodeReview.tsx`：接收编辑器里的代码，`runKey` 用「长度 + 前 64 字符」做指纹。
+  - `CodeStrategyEditor.tsx` 的「沙箱规则」卡补一条：**沙箱不检查时间语义**，未来函数请用「AI 审查代码」排查。
+
+  **守卫同步（三处）**
+  - `render-check.mjs`：`AI_TASKS` 13 → 16，新增 6 条 `AI_POINTS`。**89/89 通过**。
+  - `tests/run_checks.py`：**新增 `ai` 子集（17 条，全离线、force_local）** —— 此前 AI 任务中枢**完全没有测试覆盖**。覆盖任务注册、未知任务抛 ValueError、提案复核的三类检查（含缺 weight 反推）、复盘点名高频被拒原因、代码审查拦下 `shift(-1)` 且不误报干净代码、`_extract_json` 三种解析路径。
+  - `AI_GUIDE.md`：任务表 13 → 16，补 3 行；设计约定 #4 的任务清单与 #5 的模块清单同步（新增 `ai_tasks_strategy.py`），并写明「新增任务要同步三处守卫」。
+
+  **验收**：后端 `ai` 17/17、`strategies` 52/52、`rankings` 30/30、`screener` 42/42、`correctness` 27/27、`twelvedata` 24/24；前端 `typecheck` 通过、`lint:hooks` 通过、`test:render` 89/89、`build` 成功。
+
+- 2026-09-27 ⅩⅤ：**榜单页补两个 AI 功能 + 修正推理模型 token 预算（重大）**。用户诉求：榜单页除了「整池点评」，还要能**一键分析单只/多只股票**，以及**智能选股**。
+
+  **先拆后加（铁律 9）**：`pages/Rankings.tsx` 已 587 行、`rankings.py` 596 行，都贴着 600 软上限。先把公司档案弹窗（约 50 行）抽成 `components/rankings/CompanyProfileModal.tsx`，页面降到 537，才有空间加新功能（加完 570）。
+
+  **后端（新 1 文件 + 框架增强）**
+  - `app/ai_tasks_screen.py`：`stock_batch_review`（选中 1 只 = 深度分析，多只 = 横向对比；≤12 只）+ `smart_screen`（自然语言 → 结构化筛选条件 JSON）。两者都有规则化兜底。
+  - `app/ai_tasks.py`：`Task` 加 **`parse` 钩子** + `_extract_json()`（剥 ```json 围栏 / 取首尾花括号），`run_task` 把 text 解析成 `out["data"]` —— 让「需要被前端消费」的任务能返回结构化结果，**不改 API 层**。
+  - `ai_analyst._llm_call` 加**向后兼容**的 `timeout` 参数（默认仍 90s），AI 中枢传 180s。
+
+  **前端（新 3 文件 + 1 拆分）**
+  - `components/rankings/SelectionToolbar.tsx`：`useRowSelection()`（rows 变化自动剔除失效代码）+ 工具条。勾 1 只 = 「AI 深度分析」，多只 = 「AI 对比分析（N 只）」，弹窗展示；含批量加入关注（复用页面既有 `toggleWatch`，不另写一套状态更新）。
+  - `components/rankings/SmartScreen.tsx`：一句话描述 → chips 条件（可逐个删除）→ 一键应用回筛选面板。**字段白名单 + 数值范围钳制 + 非法字段显式提示**，绝不让模型输出的野字段静默生效。
+  - `components/rankings/RankingsTable.tsx`：加复选框列（表头全选 + 选中行高亮）。
+
+  **⚠️ 重大修正：推理模型 token 预算（2200 → 6144）**
+  实测 `cn:glm-5.3-flash` 是推理模型，**每次先烧掉 1800~3200 token 思维链**，正文还要 ~1000-1500：
+
+  | max_tokens | finish_reason | content | 思维链 |
+  |---|---|---|---|
+  | 2200（旧下限） | length | **0 字** | 2199 |
+  | 3072 | length | **0 字** | 3042 |
+  | 4096 | length | 1475 字（截断） | 3153 |
+  | **6144** | **stop** | **1878 字（完整）** | 2415 |
+  | 8192 | **网关 502 挂掉** | 0 字 | — |
+
+  结论：下限必须 ≥6144、上限**不能**超 6144（8192 会让网关自己挂）。同时 `_LLM_TIMEOUT=180s`（原 90s 卡在边界 → ReadTimeout 静默降级），前端 `ASSIST_TIMEOUT` 150s→240s。这解释了此前 `risk_review`「长提示词返回空」的**真正原因**（不是提示词问题，是预算被思维链吃光）。
+  另给 `stock_batch_review` 加篇幅约束（400/600 字），减少长生成触发网关 502。
+
+  **诚实性设计（本地兜底也不能骗人）**：`smart_screen` 的关键词规则**只映射价格动量**，「营收增速/分析师评级/ESG/PEG」等平台没有的字段**不拿别的指标顶替**，而是显式说明「平台暂无对应字段」。实测「营收增速 30% 以上的成长股」→ 不产出任何误导性条件 + 明确提示。
+
+  **回归**：后端 `rankings` 30/30、`strategies` 44/44；前端 `tsc` + `lint:hooks` 干净、`test:render` **83/83**（新增 4 项：榜单页两个新接入点 + 扫 `aiAssist('…')`）、`vite build` 通过。**真实 LLM 路径实测**：`smart_screen` 38s 返回合法 JSON（正确用 `rsiMax` 表达「不超买」）；`stock_batch_review` 92.5s `engine=llm`，输出区分「数据事实/概率判断」并主动声明「ROE 118% 成因数据未覆盖」。
+
+- 2026-09-27 ⅩⅣ：**AI 能力全平台接入（AI Task Hub）**。用户诉求：把项目里所有适合 AI 的功能点逐一接上，并复用 `/settings` 已配好的全局 AI 网关。做法是**先建统一入口，再逐点接入**，而不是每个功能点各写一套接口：
+
+  **后端（新，4 个文件）**
+  - `app/ai_tasks.py`（234 行，框架层）：`Task` 模型 + 注册表 + `run_task()`。调用链完全复用 `ai_analyst._llm_call`，因此「设置 → AI 分析」的网关/密钥/全局模型/`QD_AI_EXTRA_MODELS` 全部自动生效。
+  - `app/ai_tasks_market.py`（294）/ `ai_tasks_analysis.py`（292）/ `ai_tasks_ops.py`（265）：按领域登记 11 个任务。**先写 1024 行单文件，超硬上限（900）当场拆**（铁律 9）。ⅩⅤ 轮新增 `ai_tasks_screen.py`（选股类：`stock_batch_review` + `smart_screen`），任务总数 13。
+  - `api/ai.py`：新增 `GET /ai/tasks` + `POST /ai/assist`（统一入口）。同步 DB 写入一律 `run_in_threadpool`（SQLite 写锁不得冻结事件循环）；分析/诊断类任务落 `decision_logs`（action=`ASSIST`），纯展示类只写审计日志避免刷屏。`schemas.py` 加 `AiAssistRequest`。
+
+  **11 个接入点**：个股快评（行情页）、新闻要点（新闻面板）、候选池点评（榜单页）、盘面简报（首页）、回测诊断（回测页）、寻优解读（优化页）、策略草稿（策略实验室）、风控体检（风控中心）、组合点评（持仓页）、订单诊断（实盘页 + AIOps）、情报解读（公司情报）。（ⅩⅤ 轮在榜单页再补 2 个：个股对比分析、智能选股，共 13。）
+
+  **前端（新，4 个文件）**
+  - `lib/ai.ts`：`aiAssist()` / `listAiTasks()` / `getAiStatus()`（进程内缓存 + 请求合并，避免一页十几个卡片打十几次 `/ai/status`；设置页保存后 `invalidateAiStatus()`）。
+  - `components/AIAssist.tsx`（362 行）：**唯一**的 AI 卡片实现（panel/inline/modal 三形态），统一加载/失败/重试/复制/引擎标识，自带轻量 Markdown 渲染（`##`/列表/`**强调**`），常驻「不构成买卖信号」免责行。
+  - `components/OrderAiDiagnose.tsx`（88）/ `StrategyAiDraft.tsx`（96）：自包含组件，用于把取数+交互全部封装，页面只留一行编排 —— 因为 `LiveTrading.tsx`（1170）与 `Intel.tsx`（1269）已在冻结清单里。
+
+  **三个静默失效坑（都已在实现中规避）**
+  1. **推理型模型 token 预算**：实测同一网关 `max_tokens=200` 返回**空 content**（HTTP 200），1300 正常 —— 预算被思维链吃掉了。已加 `_MIN_TOKEN_BUDGET` 下限 + 「空返回且响应较快时补试」。⚠️ **ⅩⅤ 轮修正**：下限 2200 定错了，实测思维链固定烧 1800~3200 token，已改为 **6144**（详见 ⅩⅤ 条目）。同时**不允许**把 `engine` 标成 `llm` 却展示本地兜底文案（那是误导），改为返回明确的 `llm_error`。
+  2. **`payload` 闭包过期**：`run()` 用 `useCallback` 依赖 `task/runKey`，会把首次渲染的 `payload` 闭包住；若进依赖数组又会因对象字面量无限重跑。改用 `payloadRef` 承接最新值。
+  3. **任务名拼错**：前端照常渲染、点击后后端 400，极易被当成「AI 坏了」。已把任务名写进 `test:render` 的静态扫描断言（ⅩⅤ 轮扩到 13 个，并新增扫 `aiAssist('…')` 直调形式）。
+
+  **回归**：后端 `run_checks.py rankings` 22/22、`strategies` 全绿；`/ai/tasks`、未知任务 400、数据不足 400、`force_local` 兜底、**真实 LLM 路径**（`market_briefing` / `order_diagnose` 实测 `engine=llm`，输出正确区分「数据事实/概率判断」并主动声明「数据未覆盖」）逐项实测；前端 `tsc` + `lint:hooks` + `test:render` **79/79**（新增 21 项：AIAssist 白屏守卫 + 15 个接入点存在性 + 任务名白名单）+ `vite build` 通过。文档：`AI_GUIDE.md` 新增「AI 任务中枢」一节（含任务表与 5 条设计约定）。
 
 - 2026-09-26 ⅩⅢ：**连接池耗尽事故修复**（服务日志复盘：QueuePool 5+10 全占满 → 全站 500）。根因组合：① intel 调度 tick 每轮 `analysis_due_symbols` N+1 查询（33 家×2）且 naive/aware datetime TypeError（又双叒）→ 异常打掉 tick；② alerts/scan 单请求 102s 长占连接；③ 前端 WS/轮询并发叠加 → 15 连接耗尽。修复：analysis_due_symbols 统一补 tz（naive/aware 第 3 处，**SQLite + datetime 是系统性隐患，应全局排查**）；engine 池扩容 20+30/timeout 60/pre_ping。实测并发 15 请求 15/15 成功 + smoke 46/46。遗留：alerts/scan 102s 待专项（yfinance 限流×全部标的串行）。
 
