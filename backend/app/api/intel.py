@@ -1,98 +1,44 @@
-"""AI 情报中心 API。
+"""AI 情报中心 API（管理端）。
 
-两组端点：
-  · 管理端（/intel/*）          —— 走平台标准 JWT（CurrentUser），页面使用；
-  · Bridge 端（/intel/bridge/*） —— 走独立 X-Intel-Token，供 WorkBuddy / Claude Code /
-    Codex 等外部 AI Agent 领任务与提交成果。Bridge 只能读写情报数据，
-    与交易账户、持仓、密钥完全隔离。
+`/intel/*` 走平台标准 JWT（CurrentUser），供页面使用。
+
+Bridge 端（`/intel/bridge/*`，走独立 `X-Intel-Token`，供外部 AI Agent 领任务）
+已拆到 `api/intel_bridge.py`，在本文件末尾挂载 —— 对外 URL 与拆分前完全一致。
+
+共享件（鉴权 / 请求体 / 归一化工具）在 `api/intel_common.py`。
+本文件只做**参数校验与编排**：真正的业务逻辑在 `app/intel.py`、
+`app/intel_activity.py`、`app/intel_digest.py`（铁律 9）。
 """
 from __future__ import annotations
 
 import datetime as dt
-import re
-from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException
+from sqlalchemy import case
 
-from .. import intel
+from .. import intel, intel_activity, intel_digest
 from ..database import session_scope
 from ..models import IntelAnalysis, IntelBridgeLog, IntelCompany, IntelEvent, IntelRun
+from . import intel_bridge
 from .deps import CurrentUser
+from .intel_common import (
+    AiScrapeReq,
+    CompanyReq,
+    CompanyUpdateReq,
+    IntelSettingsReq,
+    MonitorStartReq,
+    _llm_configured,
+    _norm_scrape_limit,
+    _norm_scrape_symbols,
+    _scored_rows,
+    _SYMBOL_RE,
+)
 
 router = APIRouter(prefix="/intel", tags=["AI 情报中心"])
 
-_SYMBOL_RE = re.compile(r"^[A-Z0-9.\-^]{1,16}$")
-def _norm_agent(agent: str | None) -> str:
-    """解析式处理任意 Agent 名：不设白名单——非法字符替换为 '-' 而非整体拒绝。
-
-    例：'WorkBuddy AI'→'WorkBuddy-AI'，'workbuddy.ai'→'workbuddy-ai'，
-    名字完整保留（截 48 与 DB 列宽一致），空值才回退 unknown。
-    """
-    a = re.sub(r"[^A-Za-z0-9_\-. ]", "-", (agent or "").strip())
-    a = re.sub(r"[ .]+", "-", a).strip("-_")[:48]
-    return a or "unknown"
-
 
 # ==================================================================
-# Bridge 鉴权
-# ==================================================================
-def bridge_auth(
-    x_intel_token: Annotated[str, Header()] = "",
-    token: Annotated[str, Query(include_in_schema=False)] = "",
-) -> str:
-    """校验 Bridge Token，返回规范化前的 token（仅用于比对）。"""
-    st = intel.ensure_settings()
-    supplied = x_intel_token or token
-    if not supplied or supplied != st.bridge_token:
-        raise HTTPException(401, "X-Intel-Token 无效或缺失（可在情报中心页面查看/重置）")
-    return supplied
-
-
-# ==================================================================
-# 请求体
-# ==================================================================
-class MonitorStartReq(BaseModel):
-    interval_minutes: int | None = None
-    auto_analyze: bool | None = None
-
-
-class IntelSettingsReq(BaseModel):
-    interval_minutes: int | None = None
-    auto_analyze: bool | None = None
-
-
-class CompanyReq(BaseModel):
-    symbol: str
-    name: str = ""
-    theme: str = ""
-    focus: str = ""
-
-
-class CompanyUpdateReq(BaseModel):
-    name: str | None = None
-    theme: str | None = None
-    focus: str | None = None
-    enabled: bool | None = None
-
-
-class BridgeEventsReq(BaseModel):
-    agent: str = "unknown"
-    events: list[dict[str, Any]] = []
-
-
-class BridgeAnalysisReq(BaseModel):
-    agent: str = "unknown"
-    analyses: list[dict[str, Any]] = []
-
-
-class BridgeDoneReq(BaseModel):
-    agent: str = "unknown"
-    note: str = ""
-
-
-# ==================================================================
-# 管理端
+# 总览 / 设置 / 监控
 # ==================================================================
 @router.get("/overview")
 def overview(user: CurrentUser) -> dict:  # noqa: ARG001
@@ -107,7 +53,8 @@ def overview(user: CurrentUser) -> dict:  # noqa: ARG001
         recent_events = db.query(IntelEvent).order_by(IntelEvent.created_at.desc()).limit(15).all()
         recent_analyses = db.query(IntelAnalysis).order_by(IntelAnalysis.created_at.desc()).limit(8).all()
         runs = db.query(IntelRun).order_by(IntelRun.id.desc()).limit(10).all()
-        tasks_pending = len(intel.pending_tasks(db, st.interval_minutes))
+        pending_list = intel.pending_tasks(db, st.interval_minutes)
+        tasks_pending = len(pending_list)
         day_ago = dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=24)
         logs = db.query(IntelBridgeLog).filter(IntelBridgeLog.ts >= day_ago).all()
         agents: dict[str, str] = {}
@@ -117,13 +64,22 @@ def overview(user: CurrentUser) -> dict:  # noqa: ARG001
         for lg in logs:
             if agents.get(lg.agent, "") < lg.ts.isoformat():
                 agents[lg.agent] = lg.ts.isoformat()
+        # 总控需要的关键信息：上次批次摘要（含实查计数）+ 今日/近 24h 活动
+        # 旧实现只暴露 running 批次且用 run 自报计数，实测运行中批次长期显示「事件 0」
+        # —— 数字既缺又假。改为实查 + 补全已截止批次。
+        last_run_row = intel_activity.last_run(db)
+        last_run = intel_activity.run_summary(last_run_row, db)
+        activity = intel_activity.activity_stats(db)
+        digest_row = intel_digest.load_digest()
     return {
         "settings": {
             "monitor_enabled": bool(st.monitor_enabled),
             "interval_minutes": st.interval_minutes,
             "auto_analyze": bool(st.auto_analyze),
+            "ai_scrape": bool(st.ai_scrape),
             "bridge_token": st.bridge_token,
         },
+        "llm": {"configured": _llm_configured()},
         "scheduler": intel.SCHEDULER.status(),
         "stats": {
             "events_total": n_events,
@@ -131,7 +87,20 @@ def overview(user: CurrentUser) -> dict:  # noqa: ARG001
             "companies_total": n_companies,
             "companies_enabled": n_enabled,
             "tasks_pending": tasks_pending,
+            # 「指定标的」需要按标的显示「待抓取」并支持「全选待抓取」——
+            # 待抓取的判定逻辑只在后端（interval*1.2），前端不得自行推算，故直接给出清单。
+            "pending_symbols": [t["symbol"] for t in pending_list],
             "agents_24h": agents,
+        },
+        "last_run": last_run,
+        "activity": activity,
+        "digest": {
+            "available": digest_row is not None,
+            "digest_date": digest_row["digest_date"] if digest_row else None,
+            "top_count": digest_row["top_count"] if digest_row else 0,
+            "event_count": digest_row["event_count"] if digest_row else 0,
+            "updated_at": digest_row["updated_at"] if digest_row else None,
+            "has_llm_text": bool(digest_row and digest_row.get("llm_text")),
         },
         "companies": [
             {
@@ -149,15 +118,79 @@ def overview(user: CurrentUser) -> dict:  # noqa: ARG001
 
 @router.put("/settings")
 def update_settings(payload: IntelSettingsReq, user: CurrentUser) -> dict:  # noqa: ARG001
-    """预配置抓取周期 / 自动分析（不开监控也能改）。"""
-    intel.save_settings(interval_minutes=payload.interval_minutes, auto_analyze=payload.auto_analyze)
+    """预配置抓取周期 / 自动分析 / AI 抓取（不开监控也能改）。"""
+    intel.save_settings(interval_minutes=payload.interval_minutes,
+                        auto_analyze=payload.auto_analyze, ai_scrape=payload.ai_scrape)
     st = intel.ensure_settings()
-    return {"ok": True, "interval_minutes": st.interval_minutes, "auto_analyze": bool(st.auto_analyze)}
+    return {"ok": True, "interval_minutes": st.interval_minutes,
+            "auto_analyze": bool(st.auto_analyze), "ai_scrape": bool(st.ai_scrape)}
+
+
+@router.post("/ai-scrape")
+def ai_scrape_now(payload: AiScrapeReq, user: CurrentUser) -> dict:  # noqa: ARG001
+    """内置 AI 立即抓取（后台任务版）：立即返回 job_id，前端轮询 GET /intel/job/{id}。
+
+    旧实现是同步 HTTP：4 家公司要 2~6 分钟，前端 30s 超时报错、后端还在傻跑，
+    占死工作线程且用户看不到任何进度 —— 违反「长任务走 jobs」铁律，故改造。
+    symbols 为空时自动取「到期待抓取」的公司；**非空时该清单就是本轮批次**（不再按 limit
+    截断）—— 前端「指定标的」用它实现「只跑我挑的这几家 / 只跑一家」。
+    """
+    from ..ai_analyst import ai_configured
+    from ..engine import jobs
+
+    if not ai_configured():
+        raise HTTPException(400, "尚未配置 AI：请到「设置 → AI 分析」填写 base_url / api_key / model 后重试")
+
+    picked = _norm_scrape_symbols(payload.symbols)
+
+    def _fn(progress, cancel_event):  # noqa: ANN001
+        results = intel.ai_scrape_companies(
+            symbols=picked,
+            limit=_norm_scrape_limit(payload.limit),
+            with_analysis=bool(payload.with_analysis),
+            model=str(payload.model or ""),
+            progress_cb=progress, cancel_event=cancel_event,
+        )
+        total_events = sum(r.get("inserted", 0) for r in results)
+        intel.bridge_log("builtin-ai", "ai_scrape",
+                         f"symbols={len(results)} picked={len(picked)} "
+                         f"events=+{total_events} model={payload.model or 'default'}")
+        # 逐家失败明细单独汇总 —— 前端据此给出明确的失败提示，而不是笼统「完成」
+        errors = [{"symbol": r.get("symbol"), "error": r["error"]}
+                  for r in results if r.get("error")]
+        return {"count": len(results), "events_inserted": total_events,
+                "cancelled": cancel_event.is_set(), "errors": errors, "results": results}
+
+    job_id = jobs.start("intel_scrape", _fn)
+    return {"ok": True, "job_id": job_id, "model": payload.model or ""}
+
+
+@router.get("/job/{job_id}")
+def get_job(job_id: str, user: CurrentUser) -> dict:  # noqa: ARG001
+    """查询后台抓取任务：running / done / error / cancelled + progress/total/note。"""
+    from ..engine import jobs
+
+    job = jobs.get(job_id)
+    if job is None:
+        raise HTTPException(404, f"任务 {job_id} 不存在或已过期")
+    return {"ok": True, **job}
+
+
+@router.post("/job/{job_id}/cancel")
+def cancel_job(job_id: str, user: CurrentUser) -> dict:  # noqa: ARG001
+    """协作式取消：当前公司跑完即停，已完成的公司结果保留。"""
+    from ..engine import jobs
+
+    if not jobs.cancel(job_id):
+        raise HTTPException(404, f"任务 {job_id} 不存在或已结束")
+    return {"ok": True, "job_id": job_id, "message": "已请求取消，当前公司处理完后停止"}
 
 
 @router.post("/monitor/start")
 def monitor_start(payload: MonitorStartReq, user: CurrentUser) -> dict:  # noqa: ARG001
     intel.ensure_default_companies()
+    if payload.ai_scrape is not None:
+        intel.save_settings(ai_scrape=payload.ai_scrape)
     run_id = intel.SCHEDULER.start(payload.interval_minutes, payload.auto_analyze)
     return {"ok": True, "run_id": run_id, "status": intel.SCHEDULER.status()}
 
@@ -168,6 +201,9 @@ def monitor_stop(user: CurrentUser) -> dict:  # noqa: ARG001
     return {"ok": True, **result, "status": intel.SCHEDULER.status()}
 
 
+# ==================================================================
+# 观察标的
+# ==================================================================
 @router.get("/companies")
 def list_companies(user: CurrentUser) -> dict:  # noqa: ARG001
     with session_scope() as db:
@@ -256,15 +292,75 @@ def delete_company(cid: int, user: CurrentUser) -> dict:  # noqa: ARG001
     return {"ok": True}
 
 
+# ==================================================================
+# 事件 / 建议
+# ==================================================================
 @router.get("/events")
-def list_events(user: CurrentUser, symbol: str = "", limit: int = 100) -> dict:  # noqa: ARG001
+def list_events(  # noqa: ARG001
+    user: CurrentUser,
+    symbol: str = "",
+    limit: int = 100,
+    min_impact: int = 0,
+    since_days: int = 0,
+    sentiment: str = "",
+    category: str = "",
+    stage: str = "",
+    media: str = "",
+    sort: str = "created",
+) -> dict:
+    """事件列表。
+
+    `sort`：
+      · created（默认，兼容旧行为）—— 按入库时间倒序
+      · importance —— 按确定性重要度倒序（页面「重点优先」用这个）
+      · occurred —— 按事件发生日倒序（日期未知排最后）
+    `since_days` > 0 时只取近 N 天（按 occurred_on，日期未知的按入库时间兜底）。
+    `media`：`""` 全部 / `"exclude"` 仅公司自身事件 / `"only"` 仅媒体评论。
+    返回体额外带 `importance` / `tier` / `stage` / `stage_cn` / `commentary` —— 旧版不返回
+    stage，导致「已敲定 / 在谈 / 传闻」的前瞻管道能力在页面上完全看不见。
+    """
     limit = max(1, min(500, limit))
+    today = dt.date.today()
+    # `commentary` 不是 DB 列（由 intel_classify 现算），只能在 Python 侧过滤 ——
+    # 因此启用该筛选时必须**多取一批**，否则过滤后凑不满 limit 条。
+    media_on = media in ("exclude", "only")
     with session_scope() as db:
-        q = db.query(IntelEvent).order_by(IntelEvent.created_at.desc())
+        q = db.query(IntelEvent)
         if symbol:
             q = q.filter(IntelEvent.symbol == symbol.strip().upper())
-        rows = q.limit(limit).all()
-    return {"items": [intel._event_row(e) for e in rows]}
+        if min_impact > 0:
+            q = q.filter(IntelEvent.impact >= max(1, min(5, min_impact)))
+        if sentiment in ("positive", "negative", "neutral"):
+            q = q.filter(IntelEvent.sentiment == sentiment)
+        if category:
+            q = q.filter(IntelEvent.category == category.strip())
+        if stage in ("confirmed", "negotiating", "rumor"):
+            q = q.filter(IntelEvent.stage == stage)
+        if since_days > 0:
+            cutoff = (today - dt.timedelta(days=max(1, min(400, since_days)))).isoformat()
+            q = q.filter((IntelEvent.occurred_on >= cutoff) | (IntelEvent.occurred_on == ""))
+        if sort == "occurred":
+            q = q.order_by(
+                case((IntelEvent.occurred_on != "", 0), else_=1),
+                IntelEvent.occurred_on.desc(),
+                IntelEvent.impact.desc(),
+                IntelEvent.id.desc(),
+            )
+        elif sort == "importance":
+            # 重要度是 Python 侧纯函数，无法在 SQL 排序 —— 多取一批再截断，
+            # 保证「重点优先」拿到的是全局最重要的，而不是先按时间截断后的局部最优。
+            q = q.order_by(
+                case((IntelEvent.occurred_on != "", 0), else_=1),
+                IntelEvent.occurred_on.desc(),
+                IntelEvent.impact.desc(),
+                IntelEvent.id.desc(),
+            )
+            rows = q.limit(min(1500, limit * (12 if media_on else 6))).all()
+            return {"items": _scored_rows(rows, limit, today, media=media, by_importance=True)}
+        else:
+            q = q.order_by(IntelEvent.created_at.desc(), IntelEvent.id.desc())
+        rows = q.limit(min(1500, limit * (4 if media_on else 1))).all()
+    return {"items": _scored_rows(rows, limit, today, media=media)}
 
 
 @router.delete("/events/{eid}")
@@ -303,6 +399,9 @@ def analyze_now(symbol: str, user: CurrentUser) -> dict:  # noqa: ARG001
     return {"ok": True, "analysis": intel._analysis_row(row)}
 
 
+# ==================================================================
+# 批次 / 报告
+# ==================================================================
 @router.get("/runs")
 def list_runs(user: CurrentUser, limit: int = 30) -> dict:  # noqa: ARG001
     limit = max(1, min(100, limit))
@@ -328,6 +427,9 @@ def run_report(rid: int, user: CurrentUser) -> dict:  # noqa: ARG001
     return {"path": path, "markdown": text}
 
 
+# ==================================================================
+# Bridge 令牌 / 指南（管理端；Bridge 端点本身在 intel_bridge.py）
+# ==================================================================
 @router.post("/bridge-token/reset")
 def reset_token(user: CurrentUser) -> dict:  # noqa: ARG001
     token = intel.reset_bridge_token()
@@ -339,6 +441,9 @@ def bridge_guide(user: CurrentUser) -> dict:  # noqa: ARG001
     return intel.bridge_guide()
 
 
+# ==================================================================
+# 建议验证 / 时间线 / 行情
+# ==================================================================
 @router.get("/verify/stats")
 def verify_stats(user: CurrentUser) -> dict:  # noqa: ARG001
     """按 Agent 聚合的建议验证统计（胜率 / 平均实际收益 / 置信度校准）。"""
@@ -390,92 +495,5 @@ def price_history(symbol: str, user: CurrentUser, days: int = 120) -> dict:  # n
     }
 
 
-# ==================================================================
-# Bridge 端（外部 AI Agent：WorkBuddy / Claude Code / Codex ...）
-# ==================================================================
-@router.get("/bridge/poll")
-def bridge_poll(agent: str = "unknown", _auth: Annotated[str, Depends(bridge_auth)] = "") -> dict:
-    intel.bridge_log(_norm_agent(agent), "poll")
-    intel.ensure_default_companies()
-    st = intel.ensure_settings()
-    run = intel.SCHEDULER.current_run()
-    with session_scope() as db:
-        tasks = intel.pending_tasks(db, st.interval_minutes)
-        n_enabled = db.query(IntelCompany).filter(IntelCompany.enabled.is_(True)).count()
-    return {
-        "ok": True,
-        "agent": _norm_agent(agent),
-        "monitor_running": run is not None,
-        "run": intel._run_row(run) if run else None,
-        "tasks": tasks,
-        "watchlist_size": n_enabled,
-        "instruction": (
-            "对每个 task：联网检索最近 90 天关键节点（模型/产品发布、重大合作、财报、监管、人事）→ "
-            "POST /api/intel/bridge/events 提交事件 → GET /api/intel/bridge/brief/{symbol} 取简报 → "
-            "POST /api/intel/bridge/analysis 提交买入建议 → 最后 POST /api/intel/bridge/done。"
-            "信息必须带真实来源（source_name/source_url），禁止编造。"
-        ),
-        "event_categories": intel.EVENT_CATEGORIES,
-        "recommendation_options": sorted(intel.RECOMMENDATIONS),
-    }
-
-
-@router.get("/bridge/brief/{symbol}")
-def bridge_brief(symbol: str, agent: str = "unknown", _auth: Annotated[str, Depends(bridge_auth)] = "") -> dict:
-    symbol = symbol.strip().upper()
-    brief = intel.company_brief(symbol)
-    if not brief["company"]["name"] and not brief["recent_events"] and not brief["company"].get("enabled"):
-        # 未建档标的也允许看简报（行情仍可用），仅提示
-        brief["note"] = "该标的不在观察列表（事件提交后会自动建档为未启用）"
-    intel.bridge_log(_norm_agent(agent), "brief", symbol)
-    return {"ok": True, **brief}
-
-
-@router.post("/bridge/events")
-def bridge_events(payload: BridgeEventsReq, _auth: Annotated[str, Depends(bridge_auth)] = "") -> dict:
-    agent = _norm_agent(payload.agent)
-    if not payload.events:
-        raise HTTPException(400, "events 为空")
-    run = intel.SCHEDULER.current_run()
-    res = intel.add_events(payload.events[:100], agent, run.id if run else None)
-    intel.bridge_log(agent, "submit_events",
-                     f"+{res['inserted']} dup={res['duplicates']} rej={res['rejected']}")
-    return {"ok": True, **res}
-
-
-@router.post("/bridge/analysis")
-def bridge_analysis(payload: BridgeAnalysisReq, _auth: Annotated[str, Depends(bridge_auth)] = "") -> dict:
-    agent = _norm_agent(payload.agent)
-    if not payload.analyses:
-        raise HTTPException(400, "analyses 为空")
-    run = intel.SCHEDULER.current_run()
-    inserted, errors = 0, []
-    for item in payload.analyses[:50]:
-        try:
-            symbol = str(item.get("symbol", "")).strip().upper()
-            if not symbol:
-                errors.append("缺少 symbol")
-                continue
-            from ..data_provider import get_quote
-
-            price = float((get_quote(symbol) or {}).get("price") or 0.0)
-            row = intel.add_analysis(item, agent=agent, engine="agent",
-                                     run_id=run.id if run else None, price=price)
-            inserted += 1
-        except Exception as exc:  # noqa: BLE001
-            errors.append(f"{exc}"[:120])
-    intel.bridge_log(agent, "submit_analysis", f"+{inserted} err={len(errors)}")
-    return {"ok": inserted > 0, "inserted": inserted, "errors": errors}
-
-
-@router.post("/bridge/done")
-def bridge_done(payload: BridgeDoneReq, _auth: Annotated[str, Depends(bridge_auth)] = "") -> dict:
-    agent = _norm_agent(payload.agent)
-    run = intel.SCHEDULER.current_run()
-    with session_scope() as db:
-        if run:
-            r = db.get(IntelRun, run.id)
-            if r:
-                intel._seen_add(r, agent)
-    intel.bridge_log(agent, "done", payload.note[:400])
-    return {"ok": True, "message": "本轮任务已记录，感谢。"}
+# Bridge 端（/intel/bridge/*）：挂在最后，保持与拆分前一致的注册顺序。
+router.include_router(intel_bridge.router)
