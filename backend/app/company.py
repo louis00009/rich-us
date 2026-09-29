@@ -1,8 +1,10 @@
-"""公司档案：英文名 + 英文介绍 + 关键信息（榜单/AI 分析共用）；中文名 + 市值（腾讯批量行情）。"""
+"""公司档案：英文名 + 英文介绍 + 关键信息（榜单/AI 分析共用）；中文名 + 市值 + 估值（腾讯批量行情）。"""
 from __future__ import annotations
 
 import json
 import re
+import threading
+import time
 from datetime import datetime as _dt, timezone as _tz
 from typing import Any
 
@@ -11,12 +13,48 @@ from .models import CompanyProfile
 
 _TTL_SEC = 30 * 86400        # 档案 30 天刷新一次
 
+# 腾讯美股/港股行情串里已实测确认的字段下标。
+# 取证脚本：`tools/_probe_tencent_fields.py`（148 只样本，2026-09-27 实测）。
+#   1=中文名 38=换手率% 39=市盈率TTM 43=振幅% 44=流通市值(亿) 45=总市值(亿)
+#   46=英文名 47=每股收益TTM 48=52周高 49=52周低 51=市净率 52=股息率%
+#   62=总股本 63=流通股本
+# ⚠️ 两个坑：
+#   ① **44 是流通市值，45 才是总市值** —— 旧实现把 44 当总市值，AAPL/KO 因
+#      流通≈总股本没暴露，NVDA 差 4%（52193 vs 54347 亿美元）。
+#   ② 51（市净率）腾讯无公开字段文档，仅有间接证据（隐含 ROE 中位数 15.5%，
+#      与 S&P 500 实际水平吻合）。若哪天发现 PB 明显离谱，先怀疑这一项。
+_F = {
+    "name_cn": 1, "turnover": 38, "pe_ttm": 39, "amplitude": 43,
+    "market_cap_float": 44, "market_cap": 45, "name_en": 46, "eps_ttm": 47,
+    "w52_high": 48, "w52_low": 49, "pb": 51, "div_yield": 52,
+    "shares_total": 62, "shares_float": 63,
+}
+_CAP_KEYS = ("market_cap", "market_cap_float")   # 亿美元 → 美元
+# 合理性区间：超界一律置 None，宁可显示 "—" 也不显示离谱数字。
+_BOUNDS = {
+    "pe_ttm": (-1e4, 1e4), "eps_ttm": (-1e5, 1e5), "pb": (0.0, 1e4),
+    "div_yield": (0.0, 100.0), "turnover": (0.0, 1000.0), "amplitude": (0.0, 1000.0),
+    "w52_high": (0.0, 1e7), "w52_low": (0.0, 1e7),
+    "shares_total": (0.0, 1e15), "shares_float": (0.0, 1e15),
+    "market_cap": (0.0, 1e15), "market_cap_float": (0.0, 1e15),
+}
 
-def _tencent_batch(symbols: list[str]) -> dict[str, dict[str, Any]]:
-    """腾讯批量行情：中文名（第 2 段）+ 总市值（第 45 段，亿美元）。
 
-    返回 {symbol: {"name_cn": ..., "market_cap": 美元}}。
-    市值口径验证：AAPL 145.9 亿股 × $337 ≈ 49154 亿 = parts[44] ✓。
+def _num(parts: list[str], idx: int) -> float | None:
+    """取第 idx 段并转 float；空串/非数字返回 None。"""
+    try:
+        if idx < len(parts) and parts[idx] not in ("", "-"):
+            return float(parts[idx])
+    except (ValueError, IndexError):
+        pass
+    return None
+
+
+def batch_fields(symbols: list[str]) -> dict[str, dict[str, Any]]:
+    """腾讯批量行情：一次请求拿回中文名 / 市值 / 估值等全部已确认字段。
+
+    返回 {symbol: {"name_cn": str, "market_cap": 美元(总市值), "pe_ttm": float|None, ...}}。
+    字段口径见模块顶部 `_F` 注释；已用 148 只样本算术自证（见 tools/_probe_tencent_fields.py）。
     """
     import httpx
 
@@ -49,16 +87,30 @@ def _tencent_batch(symbols: list[str]) -> dict[str, dict[str, Any]]:
                     sym = var[2:].lstrip("0").zfill(4) + ".HK"
                 else:
                     continue
-                cap = None
-                try:
-                    if len(parts) > 44 and parts[44]:
-                        cap = float(parts[44]) * 1e8       # 亿美元 → 美元
-                except (ValueError, IndexError):
-                    cap = None
-                out[sym] = {"name_cn": parts[1], "market_cap": cap}
+                row: dict[str, Any] = {}
+                for key, idx in _F.items():
+                    if key in ("name_cn", "name_en"):
+                        row[key] = parts[idx] if idx < len(parts) else ""
+                        continue
+                    val = _num(parts, idx)
+                    if val is not None and key in _CAP_KEYS:
+                        val *= 1e8                     # 亿美元 → 美元
+                    lo, hi = _BOUNDS.get(key, (None, None))
+                    if val is not None and lo is not None and not (lo <= val <= hi):
+                        val = None
+                    row[key] = val
+                out[sym] = row
     except Exception:  # noqa: BLE001 —— 名称/市值拉取失败不影响主流程
         pass
     return out
+
+
+# 兼容旧调用名（模块内两处）；新代码请直接用 batch_fields。
+_tencent_batch = batch_fields
+
+# enrich 补拉冷却（防止欠账窗口期每次请求都同步卡 2s+ / 后台线程风暴）
+_enrich_sync_last = 0.0
+_enrich_bg_last = 0.0
 
 
 def names_cn(symbols: list[str]) -> dict[str, str]:
@@ -115,7 +167,17 @@ def names_cn_cached(symbols: list[str]) -> dict[str, str]:
 
 
 def enrich(symbols: list[str]) -> dict[str, dict[str, Any]]:
-    """中文名 + 总市值（美元）。落库缓存（含负缓存，见 names_cn）；缺失的批量补拉一次。"""
+    """中文名 + 总市值（美元）。落库缓存（含负缓存，见 names_cn）。
+
+    ⚠️ 缺失标的的补拉**同步只做一批（≤50 只 ≈ 3s）**，其余转后台线程 ——
+    扩池到 940 只的首次请求 missing 有 374 只，全量同步要 ~43s，正好是
+    「打开榜单慢」的另一个根因。后台补完即落库，下一次请求自然生效。
+
+    ⚠️ 同步补拉有 60s 冷却：欠账未清的窗口期（刚扩池 / 手动加票）里，
+    如果每次请求都同步补一批，页面会连续几十秒每次都卡 2s+。冷却期内
+    missing 全部转后台 —— 中文名晚几分钟出现完全可接受。
+    """
+    global _enrich_sync_last, _enrich_bg_last
     syms = [s.strip().upper() for s in symbols if s.strip()]
     if not syms:
         return {}
@@ -131,20 +193,48 @@ def enrich(symbols: list[str]) -> dict[str, dict[str, Any]]:
             }
         missing = [x for x in syms if x not in known_syms]
     if missing:
-        fetched = _tencent_batch(missing)
-        with session_scope() as s2:
-            for sym in missing:
-                info = fetched.get(sym) or {}
-                if info.get("name_cn") or info.get("market_cap"):
-                    known[sym] = info
-                row = s2.get(CompanyProfile, sym)
-                if row:
-                    row.name_cn = info.get("name_cn") or row.name_cn
-                    if info.get("market_cap"):
-                        row.market_cap = info["market_cap"]
-                else:
-                    s2.add(CompanyProfile(symbol=sym, name_cn=info.get("name_cn") or "",
-                                          market_cap=info.get("market_cap") or 0.0))
+        # ---- 同步补拉：60s 冷却，冷却外只补第一批（≤50 只 ≈ 3s）----
+        sync_now = missing[:50] if (time.time() - _enrich_sync_last >= 60) else []
+        if sync_now:
+            _enrich_sync_last = time.time()
+            fetched = _tencent_batch(sync_now)
+            with session_scope() as s2:
+                for sym in sync_now:
+                    info = fetched.get(sym) or {}
+                    if info.get("name_cn") or info.get("market_cap"):
+                        known[sym] = info
+                    row = s2.get(CompanyProfile, sym)
+                    if row:
+                        row.name_cn = info.get("name_cn") or row.name_cn
+                        if info.get("market_cap"):
+                            row.market_cap = info["market_cap"]
+                    else:
+                        s2.add(CompanyProfile(symbol=sym, name_cn=info.get("name_cn") or "",
+                                              market_cap=info.get("market_cap") or 0.0))
+        # ---- 其余全部转后台（写库即生效，不阻塞响应）；300s 冷却防线程风暴 ----
+        synced = set(sync_now)
+        bg_list = [x for x in missing if x not in synced]
+        if bg_list and (time.time() - _enrich_bg_last >= 300):
+            _enrich_bg_last = time.time()
+
+            def _bg_fill() -> None:
+                try:
+                    fetched = _tencent_batch(bg_list)
+                    with session_scope() as s2:
+                        for sym in bg_list:
+                            info = fetched.get(sym) or {}
+                            row = s2.get(CompanyProfile, sym)
+                            if row:
+                                row.name_cn = info.get("name_cn") or row.name_cn
+                                if info.get("market_cap"):
+                                    row.market_cap = info["market_cap"]
+                            else:
+                                s2.add(CompanyProfile(symbol=sym, name_cn=info.get("name_cn") or "",
+                                                      market_cap=info.get("market_cap") or 0.0))
+                except Exception:  # noqa: BLE001 —— 后台补拉失败就等下次触发
+                    pass
+
+            threading.Thread(target=_bg_fill, daemon=True, name="company-enrich-bg").start()
     return known
 
 
