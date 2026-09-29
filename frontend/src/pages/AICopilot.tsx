@@ -219,7 +219,7 @@ export default function AICopilot() {
           {useLLM && llmAvailable && extraModels.length > 0 && (
             <Field label="模型（T-109 多模型）">
               <Select value={selModel} onChange={(e) => setSelModel(e.target.value)} className="w-52">
-                <option value="">默认（{extraModels.length ? '' : '主模型'}）</option>
+                <option value="">默认（跟随「设置 → AI 分析」的全局模型）</option>
                 {extraModels.map((m) => (
                   <option key={m} value={m}>
                     {m}

@@ -538,7 +538,26 @@ def _match_strategies(regime: str, ind_data: dict[str, Any], composite: float) -
 # ==================================================================
 # LLM 模式
 # ==================================================================
+def _runtime_ai() -> dict[str, Any] | None:
+    """设置页「AI 分析」存的运行时全局配置；未配置返回 None。
+
+    优先级：state.ai_settings > 环境变量 QD_AI_*。延迟导入避免与 state 的
+    加载顺序纠缠（state 只依赖 config，实际无环，但延迟导入最稳）。
+    """
+    try:
+        from . import state as appstate
+
+        ai = appstate.get_ai_settings()
+        if ai.get("base_url") and ai.get("api_key"):
+            return ai
+    except Exception:  # noqa: BLE001 —— 读取失败一律退回环境变量
+        pass
+    return None
+
+
 def ai_configured() -> bool:
+    if _runtime_ai():
+        return True
     return bool(settings.ai_base_url and settings.ai_api_key)
 
 
@@ -553,16 +572,43 @@ def extra_ai_models() -> list[dict[str, str]]:
 
 
 def _llm_config_for(name: str = "") -> tuple[str, str, str]:
-    """返回 (base_url, api_key, model)。name 为空或未匹配 → 默认配置。"""
+    """返回 (base_url, api_key, model)。
+
+    解析顺序：
+      1. name 命中 QD_AI_EXTRA_MODELS 里定义的别名 → 用该别名自己的网关配置；
+      2. 否则取默认配置（设置页运行时配置 > 环境变量）；
+      3. name 非空且不是默认模型名 → 视为**直接的网关模型 id**
+         （如 `cn:glm-5.3-flash`），用默认网关 + 该模型发起调用。
+         这样 AI Copilot 的模型下拉可以直接列网关 /v1/models 的全部条目，
+         选中即用，无需额外注册。
+    """
     if name:
         for cfg in extra_ai_models():
             if cfg["name"] == name:
                 return cfg["base_url"], cfg["api_key"], cfg["model"]
-    return settings.ai_base_url or "", settings.ai_api_key or "", settings.ai_model or ""
+    rt = _runtime_ai()
+    base = rt["base_url"] if rt else (settings.ai_base_url or "")
+    key = rt["api_key"] if rt else (settings.ai_api_key or "")
+    model = (rt.get("model") if rt else settings.ai_model) or ""
+    if name and name != model:
+        return base, key, name
+    return base, key, model
 
 
 def _llm_call(messages: list[dict[str, str]], temperature: float = 0.3, max_tokens: int = 1400,
-              model_name: str = "") -> str:
+              model_name: str = "", timeout: float = 90,
+              reasoning_effort: str | None = None) -> str:
+    """调用网关的 chat/completions。
+
+    `timeout` 默认 90s（既有调用方的行为不变）。推理型模型（先输出思维链再写正文）
+    单次可能耗时 90s+，AI 任务中枢会显式传更大的值 —— 见 ai_tasks.py 的 `_LLM_TIMEOUT`。
+
+    `reasoning_effort='low'`：P0 修复 —— 推理型模型（cn:glm-5.3-flash）在长上下文
+    下思维链会膨胀到 4000+ tokens（实测 finish_reason=length、正文 0 字符，
+    95.8s 白等）；`thinking:{"type":"disabled"}` 与 `enable_thinking:false`
+    均不被网关透传，只有 OpenAI 风格的 `reasoning_effort` 生效（实测思维链
+    4085→70 tokens，95.8s→15.9s 且正文完整）。仅显式传入时生效，其他调用方不变。
+    """
     url, api_key, model = _llm_config_for(model_name)
     if not (url and api_key):
         raise RuntimeError("LLM 未配置")
@@ -574,7 +620,9 @@ def _llm_call(messages: list[dict[str, str]], temperature: float = 0.3, max_toke
         "model": model, "messages": messages,
         "temperature": temperature, "max_tokens": max_tokens,
     }
-    with httpx.Client(timeout=90) as c:
+    if reasoning_effort:
+        payload["reasoning_effort"] = reasoning_effort
+    with httpx.Client(timeout=timeout) as c:
         r = c.post(url, headers=headers, json=payload)
         r.raise_for_status()
         data = r.json()
@@ -648,8 +696,12 @@ def analyze_with_llm(snap: dict[str, Any], horizon: str = "swing", question: str
            if news_items else "")
     )
     try:
+        # P0：推理型模型在长上下文下思维链膨胀到 4000+ tokens（实测 finish=length、
+        # 正文 0 字符、95.8s 白等）。reasoning_effort='low' 压缩思维链（4085→70 tokens），
+        # 正文 3000 预算足够输出完整 Markdown 报告。
         text = _llm_call([{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": prompt}],
-                         model_name=model_name)
+                         max_tokens=3000, timeout=120, model_name=model_name,
+                         reasoning_effort="low")
         local["llm_report"] = text
         local["mode"] = "llm"
     except Exception as exc:  # noqa: BLE001

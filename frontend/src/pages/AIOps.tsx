@@ -12,6 +12,8 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Alert, Badge, Button, Card, Loading } from '../components/ui'
+import OrderAiDiagnose from '../components/OrderAiDiagnose'
+import ProposalAiReview from '../components/ProposalAiReview'
 import { api } from '../lib/api'
 import { downColor, fmtMoney, upColor } from '../lib/format'
 
@@ -165,6 +167,7 @@ export default function AIOps() {
           AI 操作手册
         </a>
         <div className="ml-auto flex items-center gap-2">
+          <OrderAiDiagnose autoRefresh />
           <Button icon={<RefreshCw className="h-3.5 w-3.5" />} onClick={load}>刷新</Button>
           <Button
             variant={kill ? 'primary' : 'danger'}
@@ -304,7 +307,8 @@ export default function AIOps() {
                     </Badge>
                     <span className="ml-auto text-[10px] text-slate-300">{p.created_by}</span>
                     {p.status === 'proposed' && (
-                      <span className="flex gap-1.5">
+                      <span className="flex items-center gap-1.5">
+                        <ProposalAiReview proposal={p} mode={data?.system?.mode} />
                         <Button
                           variant="primary"
                           onClick={() => decide(p.id, true)}
