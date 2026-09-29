@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import { Badge, Button, Card, Empty, Loading, Stat, Tabs } from './ui'
+import AIAssist from './AIAssist'
 
 type Ev = {
   id: number
@@ -213,6 +214,27 @@ export default function CompanyIntel({ symbol }: { symbol: string }) {
           </div>
         )}
       </Card>
+
+      {/* AI 情报解读：把事件流读成脉络 + 经营前瞻 + 跟踪信号 */}
+      <AIAssist
+        mode="panel"
+        task="intel_brief"
+        title="AI 情报解读"
+        desc="把事件流读成脉络、经营前瞻与跟踪信号（传闻类会被明确标注为未证实）"
+        label="解读这批情报"
+        payload={{
+          symbol,
+          window_days: data?.days,
+          pipeline: pipe,
+          recommendation: la,
+          quote: data?.quote,
+          events,
+        }}
+        runKey={`${symbol}:${days}:${events.length}`}
+        disabled={events.length === 0}
+        disabledHint={`${symbol} 在近 ${data?.days ?? 180} 天内没有已归档事件，先去「AI 情报中心」跑一轮抓取。`}
+        emptyHint="AI 会区分「已敲定 / 在谈 / 传闻」，判断管道质量，并给出与行情走势的一致性检查。"
+      />
 
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">

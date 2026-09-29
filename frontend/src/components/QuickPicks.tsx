@@ -2,6 +2,7 @@ import { PlusCircle, Star } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import { rtSubscribe } from '../lib/realtime'
+import { onWatchlistChanged } from '../lib/watchlistBus'
 import { downColor, upColor } from '../lib/format'
 
 /**
@@ -32,7 +33,12 @@ export default function QuickPicks({ current, onPick }: { current: string; onPic
   useEffect(() => {
     load()
     const t = setInterval(load, 60_000)   // 降级轮询（主链路已走 WebSocket）
-    return () => clearInterval(t)
+    // 收藏/取关即时同步：行情页收藏、榜单页关注、看板移除后立即重载，不等 60s 轮询
+    const off = onWatchlistChanged(load)
+    return () => {
+      clearInterval(t)
+      off()
+    }
   }, [load])
 
   // WebSocket 实时涨跌（T-106b）

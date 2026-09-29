@@ -1,104 +1,25 @@
-import { LineChart as LineIcon, Search, Star, TrendingUp } from 'lucide-react'
+import { LineChart as LineIcon, Star } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import CandleChart from '../components/CandleChart'
-import IntradayChart, { type IntraPoint } from '../components/IntradayChart'
+import IntradayChart from '../components/IntradayChart'
 import { PriceChart } from '../components/charts'
 import NewsPanel from '../components/NewsPanel'
 import QuickPicks from '../components/QuickPicks'
 import CompanyIntel from '../components/CompanyIntel'
-import { Badge, Button, Card, DataTable, Empty, Field, Input, KV, Loading, Select, Tabs, useToast } from '../components/ui'
+import AIAssist from '../components/AIAssist'
+import { Badge, Card, Empty, KV, Loading, Tabs, useToast } from '../components/ui'
+import { SearchPanel, type SuggestItem } from '../components/market/SearchPanel'
+import { WatchPool } from '../components/market/WatchPool'
+import { ChartPanel } from '../components/market/ChartPanel'
+import { SidePanel } from '../components/market/SidePanel'
+import { ALL_RANGES, MAJORS, MA_STYLE, QUICK_RANGES } from '../components/market/constants'
+import type { HistoryResp, IndicatorResp, IntradayResp, OverlayKey, SnapResp } from '../components/market/types'
 import { api } from '../lib/api'
 import { rtSubscribe } from '../lib/realtime'
-import { fmtCompact, fmtNum, fmtRatioPct, getColorMode, signClass } from '../lib/format'
+import { notifyWatchlistChanged } from '../lib/watchlistBus'
+import { fmtNum, fmtRatioPct, getColorMode, signClass } from '../lib/format'
 import type { DataSourceInfo, Quote } from '../lib/types'
-
-const MAJORS = ['SPY', 'QQQ', 'IWM', 'DIA', 'SMH', 'TLT', 'GLD', 'USO', '^VIX', 'FXI', 'EEM', 'IBIT']
-const RANGES = [
-  { key: '6M', days: 180 },
-  { key: '1Y', days: 365 },
-  { key: '2Y', days: 730 },
-  { key: '5Y', days: 1825 },
-]
-// 快速周期（用户语义：24H 分时 / 一周 / 一月 / 3 月 / 半年），点击自动适配 K 线周期
-const QUICK_RANGES: { key: string; label: string; days: number; interval: string }[] = [
-  { key: '1W', label: '1 周', days: 8, interval: '1h' },
-  { key: '1M', label: '1 月', days: 31, interval: '1d' },
-  { key: '3M', label: '3 月', days: 92, interval: '1d' },
-  { key: '6M', label: '半年', days: 183, interval: '1d' },
-  { key: '1Y', label: '1 年', days: 366, interval: '1d' },
-]
-const ALL_RANGES = [...QUICK_RANGES, ...RANGES]
-const INTERVALS = [
-  { key: '1d', label: '日线' },
-  { key: '1wk', label: '周线' },
-  { key: '1h', label: '小时线（近 180 天）' },
-  { key: '30m', label: '30 分钟（近 60 天）' },
-  { key: '15m', label: '15 分钟（近 60 天）' },
-  { key: '5m', label: '5 分钟（近 60 天）' },
-]
-
-interface HistoryResp {
-  symbol: string
-  source: string
-  source_requested?: string
-  warning?: string
-  realtime?: boolean
-  interval: string
-  count: number
-  dates: string[]
-  open: number[]
-  high: number[]
-  low: number[]
-  close: number[]
-  volume: number[]
-}
-
-interface IndicatorResp {
-  symbol: string
-  source: string
-  dates: string[]
-  series: Record<string, (number | null)[]>
-}
-
-interface SnapResp {
-  symbol: string
-  last_date: string
-  price: number
-  source: string
-  returns: Record<string, number | null>
-  ma: Record<string, number | null>
-  dist: Record<string, number | null>
-  levels: Record<string, number | null>
-  indicators: Record<string, number | null>
-  realtime?: { realtime: boolean; quote_source?: string; quote_ts?: string; note?: string }
-}
-
-interface IntradayResp {
-  symbol: string
-  source: string
-  interval: string
-  trade_date?: string
-  is_today?: boolean
-  prev_close: number
-  last_price: number
-  change_pct: number
-  delayed: boolean
-  count: number
-  points: IntraPoint[]
-}
-
-type OverlayKey = 'ma' | 'sma' | 'bb' | 'all' | 'none'
-
-// 均线配色（周期越长越冷色，一眼区分短中期与长期趋势）
-const MA_STYLE: { key: string; label: string; color: string }[] = [
-  { key: 'sma5', label: 'MA5', color: '#f97316' },
-  { key: 'sma10', label: 'MA10', color: '#eab308' },
-  { key: 'sma20', label: 'MA20', color: '#a855f7' },
-  { key: 'sma60', label: 'MA60', color: '#14b8a6' },
-  { key: 'sma50', label: 'SMA50', color: '#f59e0b' },
-  { key: 'sma200', label: 'SMA200', color: '#0ea5e9' },
-]
 
 export default function Market() {
   const [sp, setSp] = useSearchParams()
@@ -143,16 +64,95 @@ const [chartType, setChartTypeRaw] = useState<'candle' | 'line' | 'intraday'>(()
   const [hist, setHist] = useState<HistoryResp | null>(null)
   const [ind, setInd] = useState<IndicatorResp | null>(null)
   const [snap, setSnap] = useState<SnapResp | null>(null)
+  // 下方「我的收藏」池：来自关注列表（收藏后实时更新），空列表回退主流 ETF
   const [watch, setWatch] = useState<Quote[]>([])
+  const [watchNames, setWatchNames] = useState<Record<string, string>>({})
+  const [watchedSet, setWatchedSet] = useState<Set<string>>(new Set())
+  const [favBusy, setFavBusy] = useState(false)
   const [loading, setLoading] = useState(true)
 
+  const loadWatchQuotes = useCallback(async () => {
+    try {
+      const wl = await api.get<{ items: { symbol: string; name_cn?: string }[] }>('/watchlist')
+      const favs = wl.items.map((i) => i.symbol)
+      setWatchNames(Object.fromEntries(wl.items.map((i) => [i.symbol, i.name_cn || ''])))
+      const syms = favs.length ? favs : MAJORS
+      const r = await api.get<{ items: Quote[] }>(`/market/quote?symbols=${syms.join(',')}`)
+      setWatch(r.items)
+    } catch {
+      /* 静默：收藏池加载失败不影响主行情 */
+    }
+  }, [])
+
+  const loadWatched = useCallback(() => {
+    api.get<{ items: { symbol: string }[] }>('/watchlist')
+      .then((r) => setWatchedSet(new Set(r.items.map((i) => i.symbol))))
+      .catch(() => {})
+  }, [])
+
+  // 当前标的 收藏/取消收藏（写入后端关注列表，同步刷新收藏池）
+  const toggleWatched = async () => {
+    if (favBusy || !symbol) return
+    setFavBusy(true)
+    try {
+      if (watchedSet.has(symbol)) {
+        await api.del(`/watchlist/${encodeURIComponent(symbol)}`)
+        toast('info', `已取消收藏 ${symbol}`)
+        setWatchedSet((s) => {
+          const n = new Set(s)
+          n.delete(symbol)
+          return n
+        })
+      } else {
+        await api.post('/watchlist', { symbol })
+        toast('info', `已收藏 ${symbol} 到我的关注`)
+        setWatchedSet((s) => new Set(s).add(symbol))
+      }
+      loadWatchQuotes()
+      // 广播给 QuickPicks / WatchBar / 榜单页：关注列表已变化，即时刷新
+      notifyWatchlistChanged()
+    } catch (e: any) {
+      toast('error', e?.message || '收藏操作失败')
+    } finally {
+      setFavBusy(false)
+    }
+  }
+
+  // 搜索建议项的快捷收藏：不切换当前标的，直接加入/移出关注列表
+  const toggleSuggestFav = async (sym: string) => {
+    if (favBusy || !sym) return
+    setFavBusy(true)
+    try {
+      if (watchedSet.has(sym)) {
+        await api.del(`/watchlist/${encodeURIComponent(sym)}`)
+        toast('info', `已取消收藏 ${sym}`)
+        setWatchedSet((s) => {
+          const n = new Set(s)
+          n.delete(sym)
+          return n
+        })
+      } else {
+        await api.post('/watchlist', { symbol: sym })
+        toast('info', `已收藏 ${sym} 到我的关注`)
+        setWatchedSet((s) => new Set(s).add(sym))
+      }
+      loadWatchQuotes()
+      notifyWatchlistChanged()
+    } catch (e: any) {
+      toast('error', e?.message || '收藏操作失败')
+    } finally {
+      setFavBusy(false)
+    }
+  }
+
   useEffect(() => {
-    api.get<{ items: Quote[] }>(`/market/quote?symbols=${MAJORS.join(',')}`).then((r) => setWatch(r.items)).catch(() => {})
+    loadWatchQuotes()
+    loadWatched()
     const loadDs = () => api.get<DataSourceInfo>('/market/data-source').then(setDsInfo).catch(() => {})
     loadDs()
     const t = window.setInterval(loadDs, 60_000)   // 数据源状态/失败原因每分钟刷新
     return () => window.clearInterval(t)
-  }, [])
+  }, [loadWatchQuotes, loadWatched])
 
   // 搜索建议：250ms 防抖，仅用于下拉建议；**不再自动提交 symbol**。
   // 旧实现把输入框既当搜索框又当标的提交器：输入 "0700.HK" 的过程中
@@ -403,130 +403,32 @@ const [chartType, setChartTypeRaw] = useState<'candle' | 'line' | 'intraday'>(()
       {/* 快速选择：关注 + 持仓 一点即切 */}
       <QuickPicks current={symbol} onPick={commitSymbol} />
 
-      {/* 搜索栏 */}
-      <Card>
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="relative min-w-[220px] flex-1">
-            <label className="lbl">标的代码</label>
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                className="pl-9"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  // T-116：搜索建议键盘导航 —— ↓↑ 移动高亮、Enter 选中高亮项（无高亮则提交原文）、Esc 关闭
-                  if (e.key === 'ArrowDown' && suggest.length) {
-                    e.preventDefault()
-                    setSuggestIdx((i) => Math.min(i + 1, suggest.length - 1))
-                    return
-                  }
-                  if (e.key === 'ArrowUp' && suggest.length) {
-                    e.preventDefault()
-                    setSuggestIdx((i) => Math.max(i - 1, 0))
-                    return
-                  }
-                  if (e.key === 'Enter') {
-                    if (suggest.length && suggestIdx >= 0 && suggestIdx < suggest.length) {
-                      commitSymbol(suggest[suggestIdx].symbol)
-                    } else {
-                      commitSymbol(query || symbol)
-                    }
-                    return
-                  }
-                  if (e.key === 'Escape') {
-                    setQuery('')
-                    setSuggest([])
-                    setSuggestIdx(-1)
-                  }
-                }}
-                onBlur={() => setTimeout(() => { setSuggest([]); setSuggestIdx(-1) }, 150)}
-                placeholder="搜索代码或名称，回车切换（如 NVDA / 腾讯）"
-              />
-              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700">
-                {symbol}
-              </span>
-            </div>
-            {suggest.length > 0 && (
-              <div className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-pop" role="listbox">
-                {suggest.map((s, i) => (
-                  <button
-                    key={s.symbol}
-                    onClick={() => commitSymbol(s.symbol)}
-                    onMouseEnter={() => setSuggestIdx(i)}
-                    role="option"
-                    aria-selected={i === suggestIdx}
-                    className={`flex w-full items-center justify-between px-3 py-2 text-left ${
-                      i === suggestIdx ? 'bg-brand-50' : 'hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="text-sm font-medium text-slate-700">{s.symbol}</span>
-                    <span className="ml-3 flex-1 truncate text-xs text-slate-400">{s.name}</span>
-                    <Badge tone="slate">{s.kind}</Badge>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <Field label="周期区间">
-            <Select value={range} onChange={(e) => setRange(e.target.value)} className="w-32">
-              {RANGES.map((r) => (
-                <option key={r.key} value={r.key}>
-                  {r.key}
-                </option>
-              ))}
-            </Select>
-          </Field>
-
-          <Field label="K 线周期">
-            <Select value={interval} onChange={(e) => setInterval(e.target.value)} className="w-44">
-              {INTERVALS.map((i) => (
-                <option key={i.key} value={i.key}>
-                  {i.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-
-          <Field label="均线叠加">
-            <Select value={overlay} onChange={(e) => setOverlay(e.target.value as OverlayKey)} className="w-44">
-              <option value="ma">短线均线 MA5/10/20/60</option>
-              <option value="sma">长期均线 SMA50/200</option>
-              <option value="bb">布林带</option>
-              <option value="all">全部叠加</option>
-              <option value="none">不叠加</option>
-            </Select>
-          </Field>
-
-          <Field label="数据源" hint={dsInfo && dsInfo.providers?.ibkr?.available ? 'IBKR 已连接' : 'IBKR 未连接，将自动降级'}>
-            <Select value={source} onChange={(e) => setSource(e.target.value)} className="w-40">
-              <option value="auto">自动（推荐）</option>
-              <option value="ibkr">IBKR 优先</option>
-            </Select>
-          </Field>
-
-          <Button variant="primary" onClick={load} loading={loading} icon={<TrendingUp className="h-3.5 w-3.5" />}>
-            加载
-          </Button>
-        </div>
-
-        {hist?.warning && (
-          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            ⚠️ {hist.warning}
-          </div>
-        )}
-        {hist?.source === 'synthetic' && (
-          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            ⚠️ 当前显示的是<span className="font-medium">合成数据</span>（非真实行情）。说明外部数据源均不可用，仅供界面演示。
-          </div>
-        )}
-        {srcWarn && (
-          <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-500">
-            数据源诊断：{srcWarn}（已自动降级/重试；若频繁出现可切换数据源或稍后再试）
-          </div>
-        )}
-      </Card>
+      {/* 搜索栏（已抽到 components/market/SearchPanel.tsx，铁律 9） */}
+      <SearchPanel
+        query={query}
+        setQuery={setQuery}
+        symbol={symbol}
+        suggest={suggest}
+        setSuggest={setSuggest}
+        suggestIdx={suggestIdx}
+        setSuggestIdx={setSuggestIdx}
+        watchedSet={watchedSet}
+        commitSymbol={commitSymbol}
+        toggleSuggestFav={toggleSuggestFav}
+        range={range}
+        setRange={setRange}
+        interval={interval}
+        setInterval={setInterval}
+        overlay={overlay}
+        setOverlay={setOverlay}
+        source={source}
+        setSource={setSource}
+        dsInfo={dsInfo}
+        hist={hist}
+        srcWarn={srcWarn}
+        onLoad={load}
+        loading={loading}
+      />
 
       <div className="grid gap-5 xl:grid-cols-4">
         {/* 新闻 / 公告面板 */}
@@ -534,328 +436,45 @@ const [chartType, setChartTypeRaw] = useState<'candle' | 'line' | 'intraday'>(()
           <NewsPanel symbol={symbol} />
         </div>
 
-        {/* 图表区 */}
-        <div className="space-y-5 xl:col-span-3 xl:order-1">
-          {loading && !hist ? (
-            <Card>
-              <Loading label="正在获取行情…" />
-            </Card>
-          ) : hist ? (
-            view === 'intel' ? (
-              <CompanyIntel symbol={symbol} />
-            ) : (
-            <>
-              <Card
-                title={
-                  <span className="flex items-center gap-2">
-                    {hist.symbol}
-                    {shownQuote && (
-                      <span className={`num text-base ${signClass(shownQuote.change_pct)}`}>
-                        {fmtNum(shownQuote.price, 2)}
-                        <span className="ml-2 text-xs">
-                          {shownQuote.change > 0 ? '+' : ''}
-                          {fmtNum(shownQuote.change, 2)} ({shownQuote.change_pct > 0 ? '+' : ''}
-                          {shownQuote.change_pct.toFixed(2)}%)
-                        </span>
-                        <span className="ml-2 inline-flex items-center gap-1 text-[10px] text-emerald-600">
-                          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-                          LIVE
-                        </span>
-                      </span>
-                    )}
-                  </span>
-                }
-                subtitle={
-                  chartType === 'intraday' && intra
-                    ? `${intra.is_today ? '当日' : `交易日 ${intra.trade_date || ''}`}分时 ｜ ${intra.count} 根 1 分钟 ｜ 数据源 ${intra.source}${intra.delayed ? '（约 15 分钟延迟）' : '（实时）'}`
-                    : `${hist.count} 根 bar ｜ 数据源 ${hist.source}${hist.realtime ? '（末根为实时价）' : ''} ｜ ${hist.dates[0]?.slice(0, 10)} ~ ${hist.dates[hist.dates.length - 1]?.slice(0, 10)}`
-                }
-                actions={
-                  <div className="flex items-center gap-2">
-                    <Badge tone={hist.source === 'synthetic' ? 'amber' : hist.source === 'ibkr' ? 'green' : 'slate'}>
-                      {hist.source}
-                    </Badge>
-                    <Tabs
-                      value={view}
-                      onChange={(k) => setView(k as 'chart' | 'intel')}
-                      tabs={[
-                        { key: 'chart', label: '图表' },
-                        { key: 'intel', label: '公司情报' },
-                      ]}
-                    />
-                    <span className="mx-1 h-5 w-px bg-slate-200" />
-                    <Tabs
-                      value={chartType}
-                      onChange={(k) => setChartType(k as 'candle' | 'line' | 'intraday')}
-                      tabs={[
-                        { key: 'candle', label: 'K 线' },
-                        { key: 'intraday', label: '分时' },
-                        { key: 'line', label: '折线' },
-                      ]}
-                    />
-                  </div>
-                }
-              >
-                {/* 快速周期选择框：分时(24H) / 一周 / 一月 / 3 月 / 半年 / 1 年 */}
-                <div className="mb-3 flex flex-wrap items-center gap-1.5">
-                  <span className="mr-1 text-[11px] text-slate-400">快速周期</span>
-                  <button
-                    onClick={() => setChartType('intraday')}
-                    className={`rounded-lg border px-2.5 py-1 text-xs transition-colors ${
-                      chartType === 'intraday'
-                        ? 'border-brand-400 bg-brand-50 font-semibold text-brand-700'
-                        : 'border-slate-200 text-slate-600 hover:border-brand-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    分时 (24H)
-                  </button>
-                  {QUICK_RANGES.map((q) => (
-                    <button
-                      key={q.key}
-                      onClick={() => applyQuick(q.key)}
-                      className={`rounded-lg border px-2.5 py-1 text-xs transition-colors ${
-                        chartType !== 'intraday' && range === q.key
-                          ? 'border-brand-400 bg-brand-50 font-semibold text-brand-700'
-                          : 'border-slate-200 text-slate-600 hover:border-brand-300 hover:bg-slate-50'
-                      }`}
-                    >
-                      {q.label}
-                    </button>
-                  ))}
-                  <span className="ml-2 hidden text-[11px] text-slate-300 sm:inline">
-                    1 周/1 月含小时线；更细周期与区间用上方「周期区间 / K 线周期」自定义
-                  </span>
-                </div>
-                {chartType === 'candle' ? (
-                  <CandleChart
-                    dates={hist.dates}
-                    open={hist.open}
-                    high={hist.high}
-                    low={hist.low}
-                    close={hist.close}
-                    volume={hist.volume}
-                    overlays={overlays}
-                    levels={levels}
-                    height={430}
-                    showVolume
-                    colorMode={getColorMode()}
-                  />
-                ) : chartType === 'intraday' ? (
-                  intra ? (
-                    <>
-                      <IntradayChart
-                        points={intra.points}
-                        prevClose={intra.prev_close}
-                        height={430}
-                        colorMode={getColorMode()}
-                      />
-                      {intra.is_today === false && (
-                        <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                          当前非交易时段（或数据未更新），展示的是最近交易日 <b>{intra.trade_date}</b> 的分时走势。
-                        </div>
-                      )}
-                      {intra.delayed && (
-                        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                          ⚠️ 当前分时来自免费源（{intra.source}），日内数据约有 15 分钟延迟；接入 IBKR 行情后自动切换为实时。
-                        </div>
-                      )}
-                    </>
-                  ) : intraError ? (
-                    <div className="py-16 text-center text-sm text-slate-400">
-                      {intraError}
-                      <div className="mt-1 text-[11px] text-slate-300">30 秒后自动重试；也可切换数据源或稍后再试</div>
-                    </div>
-                  ) : (
-                    <div className="py-16 text-center text-sm text-slate-400">正在加载分时…（30 秒自动刷新）</div>
-                  )
-                ) : (
-                  <PriceChart dates={hist.dates} close={hist.close} overlays={overlays} levels={levels} height={430} />
-                )}
-              </Card>
-              {view === 'chart' && (
-              <>
-              <Card
-                title="技术指标"
-                actions={
-                  <Tabs
-                    value={subChart}
-                    onChange={setSubChart}
-                    tabs={[
-                      { key: 'rsi', label: 'RSI' },
-                      { key: 'macd', label: 'MACD' },
-                      { key: 'adx', label: 'ADX' },
-                      { key: 'vol', label: '波动率' },
-                    ]}
-                  />
-                }
-              >
-                <PriceChart
-                  dates={hist.dates}
-                  close={subSeries.data as number[]}
-                  overlays={subSeries.extra}
-                  height={190}
-                />
-              </Card>
+        {/* 图表区（已抽到 components/market/ChartPanel.tsx，铁律 9） */}
+        <ChartPanel
+          loading={loading}
+          hist={hist}
+          view={view}
+          setView={setView}
+          chartType={chartType}
+          setChartType={setChartType}
+          intra={intra}
+          intraError={intraError}
+          overlays={overlays}
+          levels={levels}
+          subChart={subChart}
+          setSubChart={setSubChart}
+          subSeries={subSeries}
+          symbol={symbol}
+          watchedSet={watchedSet}
+          favBusy={favBusy}
+          toggleWatched={toggleWatched}
+          shownQuote={shownQuote}
+          range={range}
+          applyQuick={applyQuick}
+        />
 
-              <Card title="成交量" subtitle="用于识别放量突破与缩量整理">
-                <PriceChart dates={hist.dates} close={hist.volume} height={150} />
-              </Card>
-              </>
-              )}
-            </>
-            )
-          ) : (
-            <Card>
-              <Empty icon={<LineIcon className="h-8 w-8" />} title="未获取到行情" desc="请检查标的代码，或稍后重试" />
-            </Card>
-          )}
-        </div>
-
-        {/* 侧栏 */}
-        <div className="space-y-5">
-          <Card
-            title="关键价位与结构"
-            subtitle={
-              <span className="flex flex-wrap items-center gap-2">
-                <span>{snap ? `截至 ${snap.last_date}` : ''}</span>
-                {snap?.realtime?.realtime ? (
-                  <span
-                    className="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700"
-                    title={`报价来源 ${snap.realtime.quote_source || '-'} · ${snap.realtime.quote_ts || ''}`}
-                  >
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    实时价 · {snap.realtime.quote_source}
-                  </span>
-                ) : (
-                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500" title={snap?.realtime?.note || ''}>
-                    日线口径
-                  </span>
-                )}
-              </span>
-            }
-          >
-            {snap ? (
-              <div className="space-y-3">
-                <KV
-                  cols={1}
-                  items={[
-                    { k: '现价', v: fmtNum(snap.price, 2) },
-                    { k: '52 周最高', v: fmtNum(snap.levels?.high_52w, 2) },
-                    { k: '52 周最低', v: fmtNum(snap.levels?.low_52w, 2) },
-                    { k: '距 52 周高点', v: <span className={signClass(snap.dist?.to_52w_high ?? 0)}>{fmtRatioPct((snap.dist?.to_52w_high ?? 0) / 100, 2, true)}</span> },
-                    { k: 'SMA50', v: fmtNum(snap.ma?.sma50, 2) },
-                    { k: 'SMA200', v: fmtNum(snap.ma?.sma200, 2) },
-                    { k: 'ATR(14)', v: fmtNum(snap.indicators?.atr14, 2) },
-                    { k: 'ATR 占比', v: `${fmtNum(snap.indicators?.atr_pct, 2)}%` },
-                    { k: '枢轴价', v: fmtNum(snap.levels?.pivot, 2) },
-                  ]}
-                />
-              </div>
-            ) : (
-              <Loading />
-            )}
-          </Card>
-
-          <Card title="区间收益" subtitle="用于判断动量强弱">
-            {snap ? (
-              <div className="space-y-2">
-                {[
-                  ['1 日', snap.returns?.['1d']],
-                  ['5 日', snap.returns?.['5d']],
-                  ['1 月', snap.returns?.['1m']],
-                  ['3 月', snap.returns?.['3m']],
-                  ['6 月', snap.returns?.['6m']],
-                  ['1 年', snap.returns?.['1y']],
-                  ['年初至今', snap.returns?.ytd],
-                ].map(([label, v]) => (
-                  <div key={label as string} className="flex items-center justify-between border-b border-dashed border-slate-100 pb-1.5">
-                    <span className="text-xs text-slate-500">{label}</span>
-                    <span className={`num text-sm font-medium ${signClass(v as number)}`}>
-                      {v === null || v === undefined ? '—' : `${Number(v) > 0 ? '+' : ''}${Number(v).toFixed(2)}%`}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <Loading />
-            )}
-          </Card>
-
-          <Card title="指标读数" subtitle={snap?.realtime?.realtime ? '已融合实时价计算' : ''}>
-            {snap ? (
-              <div className="space-y-2">
-                {[
-                  ['RSI(14)', snap.indicators?.rsi14, 2],
-                  ['MACD 柱', snap.indicators?.macd_hist, 4],
-                  ['ADX(14)', snap.indicators?.adx14, 1],
-                  ['+DI', snap.indicators?.plus_di, 1],
-                  ['-DI', snap.indicators?.minus_di, 1],
-                  ['布林 %B', snap.indicators?.bb_pctb, 3],
-                  ['量比', snap.indicators?.vol_ratio, 2],
-                  ['CMF(20)', snap.indicators?.cmf20, 3],
-                  ['Z 分数', snap.indicators?.zscore20, 2],
-                  ['效率比', snap.indicators?.efficiency_ratio, 3],
-                  ['Hurst', snap.indicators?.hurst, 3],
-                ].map(([label, v, d]) => (
-                  <div key={label as string} className="flex items-center justify-between border-b border-dashed border-slate-100 pb-1.5">
-                    <span className="text-xs text-slate-500">{label}</span>
-                    <span className="num text-sm font-medium text-slate-700">
-                      {v === null || v === undefined ? '—' : Number(v).toFixed(d as number)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <Loading />
-            )}
-          </Card>
-        </div>
+        {/* 侧栏（已抽到 components/market/SidePanel.tsx，铁律 9） */}
+        <SidePanel snap={snap} symbol={symbol} />
       </div>
 
-      <Card
-        title={<span className="flex items-center gap-2"><Star className="h-4 w-4 text-amber-400" />重点关注池</span>}
-        subtitle="点击切换标的"
-        dense
-      >
-        <DataTable<Quote>
-          rows={watch}
-          rowKey={(r) => r.symbol}
-          onRowClick={(r) => {
-            setSymbol(r.symbol)
-            setQuery('')
-          }}
-          columns={[
-            { key: 's', label: '标的', render: (r) => <span className="font-medium text-slate-800">{r.symbol}</span> },
-            { key: 'p', label: '现价', align: 'right', render: (r) => <span className="num">{fmtNum(r.price, 2)}</span> },
-            {
-              key: 'c',
-              label: '涨跌',
-              align: 'right',
-              render: (r) => (
-                <span className={`num ${signClass(r.change)}`}>
-                  {r.change > 0 ? '+' : ''}
-                  {fmtNum(r.change, 2)}
-                </span>
-              ),
-            },
-            {
-              key: 'cp',
-              label: '涨跌幅',
-              align: 'right',
-              render: (r) => (
-                <span className={`num ${signClass(r.change_pct)}`}>
-                  {r.change_pct > 0 ? '+' : ''}
-                  {r.change_pct.toFixed(2)}%
-                </span>
-              ),
-            },
-            { key: 'h', label: '最高', align: 'right', render: (r) => <span className="num text-slate-500">{fmtNum(r.day_high, 2)}</span> },
-            { key: 'l', label: '最低', align: 'right', render: (r) => <span className="num text-slate-500">{fmtNum(r.day_low, 2)}</span> },
-            { key: 'v', label: '成交量', align: 'right', render: (r) => <span className="num text-slate-500">{fmtCompact(r.volume)}</span> },
-            { key: 'src', label: '来源', align: 'center', render: (r) => <Badge tone={r.source === 'synthetic' ? 'amber' : 'slate'}>{r.source}</Badge> },
-          ]}
-        />
-      </Card>
+      {/* 我的收藏（已抽到 components/market/WatchPool.tsx，铁律 9） */}
+      <WatchPool
+        watch={watch}
+        watchedSet={watchedSet}
+        watchNames={watchNames}
+        onRefresh={loadWatchQuotes}
+        onPick={(sym) => {
+          setSymbol(sym)
+          setQuery('')
+        }}
+      />
     </div>
   )
 }

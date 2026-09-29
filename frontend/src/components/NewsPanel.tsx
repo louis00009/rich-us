@@ -1,6 +1,7 @@
 import { ExternalLink, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../lib/api'
+import AIAssist from './AIAssist'
 
 interface NewsItem {
   source: string
@@ -117,6 +118,21 @@ export default function NewsPanel({ symbol }: { symbol: string }) {
             <p className="mt-1 line-clamp-2 text-[12.5px] leading-snug text-slate-700">{it.headline}</p>
           </a>
         ))}
+      </div>
+
+      {/* AI 新闻要点：把多源标题压成要点 + 事件面倾向（未配置 LLM 时走关键词规则兜底） */}
+      <div className="border-t border-slate-100 px-3 py-3">
+        <AIAssist
+          mode="inline"
+          task="news_digest"
+          title="AI 新闻要点"
+          label="提炼要点"
+          payload={{ symbol, items }}
+          runKey={`${symbol}:${items.length}`}
+          disabled={items.length === 0}
+          disabledHint="暂无可提炼的新闻，先点右上角刷新。"
+          emptyHint="让 AI 把上面的标题压成 3–5 条要点，并判断事件面偏多还是偏空。"
+        />
       </div>
     </div>
   )

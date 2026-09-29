@@ -317,9 +317,10 @@ def data_source(user: CurrentUser = None) -> dict:  # noqa: ARG001
             "② 本地缓存",
             "③ yfinance",
             "④ Stooq CSV",
-            "⑤ 合成行情（非真实数据）",
+            "⑤ TwelveData（多 Key 轮询，额度用尽自动跳过）",
+            "⑥ 合成行情（非真实数据）",
         ],
-        "note": "日内周期（5m/15m/30m）在免费源只能回溯 60 天；接入 IBKR 后可回溯数年。免费链失败后进入冷却（日线 30 分钟 / 日内 ≤5 分钟）：期间直接回旧缓存/合成，不再重烧网络。",
+        "note": "日内周期（5m/15m/30m）在免费源只能回溯 60 天；接入 IBKR 后可回溯数年。免费链失败后进入冷却（日线 30 分钟 / 日内 ≤5 分钟）：期间直接回旧缓存/合成，不再重烧网络。TwelveData 免费档 8 次/分钟/Key，可在「数据与缓存」添加多个账号轮询以叠加额度。",
     }
 
 
@@ -406,6 +407,8 @@ def catalog(user: CurrentUser = None) -> dict:  # noqa: ARG001
             {"key": "ibkr", "label": "IBKR 券商行情（真实/延迟，日内可回溯数年）"},
             {"key": "yfinance", "label": "yfinance（首选免费源，支持多周期）"},
             {"key": "stooq", "label": "Stooq（免费日线兜底）"},
+            {"key": "twelvedata", "label": "TwelveData（多 Key 轮询，免费档 8 次/分钟/Key）"},
+            {"key": "finnhub", "label": "Finnhub（日线备援；免费档无 K 线权限）"},
             {"key": "synthetic", "label": "合成行情（离线自检，非真实数据）"},
             {"key": "cache", "label": "本地缓存"},
         ],
@@ -420,3 +423,87 @@ async def cache_clear(user: CurrentUser) -> dict:
     n = await run_in_threadpool(clear_cache)
     appstate.log("cache_clear", "INFO", f"清理行情缓存 {n} 个文件", actor=user.username)
     return {"ok": True, "removed": n}
+
+
+# ==================================================================
+# TwelveData 多 Key 轮询池
+# ==================================================================
+# 免费档实测 8 credits/分钟、800/天，单账号不够用 → 支持配置多个账号轮询，
+# 额度线性叠加。密钥只以密文落库，接口一律返回掩码（见 app/twelvedata.py）。
+@router.get("/twelvedata")
+def twelvedata_status(user: CurrentUser = None) -> dict:  # noqa: ARG001
+    """密钥列表（掩码）+ 轮询池状态 + 合计额度。"""
+    from .. import twelvedata as td
+
+    return td.pool().status()
+
+
+@router.post("/twelvedata/keys")
+async def twelvedata_add_key(payload: dict, user: CurrentUser) -> dict:
+    from .. import twelvedata as td
+
+    key = str(payload.get("key", "")).strip()
+    label = str(payload.get("label", "")).strip()
+    try:
+        entry = await run_in_threadpool(td.pool().add, key, label)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    # 落库时只记掩码，绝不把明文写进审计日志
+    appstate.log("twelvedata_key_add", "INFO",
+                 f"新增 TwelveData 密钥 {entry['masked']}（{entry['label']}）",
+                 actor=user.username)
+    return {"ok": True, "entry": entry, "status": td.pool().status()}
+
+
+@router.patch("/twelvedata/keys/{kid}")
+async def twelvedata_update_key(kid: str, payload: dict, user: CurrentUser) -> dict:
+    from .. import twelvedata as td
+
+    label = payload.get("label")
+    enabled = payload.get("enabled")
+    entry = await run_in_threadpool(
+        td.pool().update, kid,
+        label=str(label) if label is not None else None,
+        enabled=bool(enabled) if enabled is not None else None,
+    )
+    if entry is None:
+        raise HTTPException(404, "密钥不存在")
+    appstate.log("twelvedata_key_update", "INFO",
+                 f"TwelveData 密钥 {entry['masked']} 更新：enabled={entry['enabled']}",
+                 actor=user.username)
+    return {"ok": True, "entry": entry, "status": td.pool().status()}
+
+
+@router.delete("/twelvedata/keys/{kid}")
+async def twelvedata_delete_key(kid: str, user: CurrentUser) -> dict:
+    from .. import twelvedata as td
+
+    removed = await run_in_threadpool(td.pool().remove, kid)
+    if not removed:
+        raise HTTPException(404, "密钥不存在")
+    appstate.log("twelvedata_key_delete", "INFO", f"删除 TwelveData 密钥 {kid}", actor=user.username)
+    return {"ok": True, "status": td.pool().status()}
+
+
+@router.post("/twelvedata/keys/{kid}/test")
+async def twelvedata_test_key(kid: str, user: CurrentUser) -> dict:
+    """对指定密钥发一次真实的 /api_usage，验证有效并回填真实额度。"""
+    from .. import twelvedata as td
+
+    st = next((k for k in td.pool()._keys if k.id == kid), None)
+    if st is None:
+        raise HTTPException(404, "密钥不存在")
+    res = await run_in_threadpool(td.probe_usage, st)
+    appstate.log("twelvedata_key_test", "INFO",
+                 f"TwelveData 密钥 {td.mask_key(st.key)} 实测：{'通过' if res.get('ok') else '失败'}",
+                 actor=user.username)
+    return {**res, "status": td.pool().status()}
+
+
+@router.post("/twelvedata/reset-cooldown")
+async def twelvedata_reset_cooldown(user: CurrentUser) -> dict:
+    """手动清除全部冷却（确认额度已恢复时用）。"""
+    from .. import twelvedata as td
+
+    n = await run_in_threadpool(td.pool().clear_cooldowns)
+    return {"ok": True, "cleared": n, "status": td.pool().status()}

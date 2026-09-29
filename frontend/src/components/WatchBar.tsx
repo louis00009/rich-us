@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { rtSubscribe } from '../lib/realtime'
+import { notifyWatchlistChanged, onWatchlistChanged } from '../lib/watchlistBus'
 import { downColor, upColor } from '../lib/format'
 import { useToast } from './ui'
 
@@ -41,7 +42,12 @@ export default function WatchBar() {
   useEffect(() => {
     load()
     const t = setInterval(load, 60_000)   // 降级轮询（主链路已走 WebSocket）
-    return () => clearInterval(t)
+    // 关注/收藏即时同步：行情页收藏、榜单页关注后立即重载
+    const off = onWatchlistChanged(load)
+    return () => {
+      clearInterval(t)
+      off()
+    }
   }, [load])
 
   // WebSocket 实时价格（T-106b）：关注列表价格秒级跳动
@@ -63,6 +69,7 @@ export default function WatchBar() {
     try {
       const r = await api.post<{ added: string[]; kept: string[] }>('/watchlist/sync-positions')
       toast('success', `已同步持仓：新增关注 ${r.added.length} 个，保留 ${r.kept.length} 个`)
+      notifyWatchlistChanged()
       load()
     } catch {
       toast('error', '同步持仓失败')
@@ -73,6 +80,7 @@ export default function WatchBar() {
     try {
       await api.del(`/watchlist/${encodeURIComponent(sym)}`)
       setItems((s) => s.filter((i) => i.symbol !== sym))
+      notifyWatchlistChanged()
     } catch {
       toast('error', '移除失败')
     }
