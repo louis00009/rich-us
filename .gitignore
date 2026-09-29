@@ -26,6 +26,9 @@ pnpm-debug.log*
 .env.local
 *.secret
 
+# ---- Claude Code 本机配置（含网关密钥，不入库）----
+.claude/settings.local.json
+
 # ---- 编辑器 / 系统 ----
 .vscode/
 .idea/
@@ -48,3 +51,24 @@ frontend/.cdp-profile/
 # 绝不能入库。提交前的密钥扫描正是靠它才发现这个问题。
 backend/_checks_out.txt
 *_checks_out.txt
+# 页面验证截图（临时产物，体积大且无长期价值）
+.workbuddy-ai/*.png
+.workbuddy/*.png
+# Vite 打包 vite.config.ts 时产生的临时文件
+frontend/vite.config.ts.timestamp-*.mjs
+# 仓库根的一次性运行产物：服务日志、临时探测脚本、验证截图、并行会话的 patch 备份。
+# 这些都是本机 scratch，且服务日志里会出现运行时注入的密钥值 —— 绝不能入库。
+runtime/
+# ⚠️ 根目录的 `checks_*.txt`（自检/巡检输出）同样含运行时注入的密钥值。
+# 原有规则只盖住了 `backend/_checks_out.txt` 与 `*_checks_out.txt`（要求下划线前缀），
+# 漏了根目录的 checks_api.txt / checks_correct.txt / checks_r.txt / checks_out.txt
+# —— 实测这四个文件里确实有 FINNHUB_API_KEY 与 bridge token 的**明文**，
+# 且此前均未被忽略（一次 `git add -A` 就会推上去；好在从未被跟踪过）。
+/checks_*.txt
+# 根目录的一次性抓取/探测产物：验证榜单接口时 curl 下来的响应快照与表头 dump。
+# 它们是本机 scratch（含运行时行情数据），没有长期价值，不入库。
+/rk_*.json
+/rk_*.txt
+/prem_test.txt
+# 灌库器 / 探测脚本的输出日志（体积大、含运行时数据）
+/tools/*.log
