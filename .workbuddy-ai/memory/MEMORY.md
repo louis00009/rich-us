@@ -128,3 +128,6 @@ API `POST /ai/assist {task,payload,model,force_local}`；前端 `lib/ai.ts` + `c
 - 远端 `git@github.com:louis00009/rich-us.git`（**SSH**；本机 HTTPS 到 github 有 TLS 故障，勿改）。分支 `main`。
   推送 `GIT_SSH_COMMAND="ssh -o BatchMode=yes" git push`。忽略项清单见 §R11。
 - 提交前必做**内容级**密钥扫描（`backend/_checks_out.txt` 曾含真 FINNHUB key）→ skill `git-safe-publish`。
+  ⚠️ 最隐蔽的一类：**真实密钥被当成「测试夹具」**（`tests/run_checks.py` 曾把用户的真
+  `TWELVEDATA_API_KEY` 塞进掩码测试）—— 文件名正常、不在 ignore 里，**只有读真值反查内容才抓得到**。
+  另：`git add -A` 前先看暂存清单，验证接口留下的 `rk_*.json` / `*.log` 快照很容易被顺手收进去。
