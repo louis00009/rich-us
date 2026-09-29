@@ -20,6 +20,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { MiniSpark } from '../components/charts'
+import OrderAiDiagnose from '../components/OrderAiDiagnose'
 import {
   Alert,
   Badge,
@@ -1003,7 +1004,16 @@ export default function LiveTrading() {
             )}
           </Card>
 
-          <Card title="订单流水" dense actions={<Badge tone="slate">{orders.length}</Badge>}>
+          <Card
+            title="订单流水"
+            dense
+            actions={
+              <>
+                <OrderAiDiagnose />
+                <Badge tone="slate">{orders.length}</Badge>
+              </>
+            }
+          >
             <DataTable<OrderRow>
               rows={orders}
               rowKey={(r) => r.id}

@@ -1,5 +1,4 @@
 import {
-  AlertTriangle,
   Check,
   Code2,
   Filter,
@@ -27,307 +26,22 @@ import {
   Loading,
   Modal,
   Select,
-  Switch,
   Tabs,
   useToast,
 } from '../components/ui'
 import { api } from '../lib/api'
-import { fmtNum } from '../lib/format'
-import type { ParamSpec, StrategyConfig, StrategyInfo } from '../lib/types'
+import { symbolsToInput } from '../lib/backtestPrefs'
+import type { StrategyConfig, StrategyInfo } from '../lib/types'
+import StrategyAiDraft from '../components/StrategyAiDraft'
+import ParamForm from '../components/strategies/ParamForm'
+import CodeStrategyEditor from '../components/strategies/CodeStrategyEditor'
+import { CondRow, condToSpec, newCond, type Cond } from '../components/strategies/ruleEditor'
 
 const CAT_TONE: Record<string, 'brand' | 'green' | 'amber' | 'violet' | 'blue'> = {
   趋势动量: 'brand',
   均值回归: 'green',
   进阶前沿: 'violet',
   日内微观: 'amber',
-}
-
-/* ================================================================
- * 参数表单（依据后端 ParamSpec 自动渲染）
- * ================================================================ */
-function ParamForm({
-  specs,
-  values,
-  onChange,
-}: {
-  specs: ParamSpec[]
-  values: Record<string, any>
-  onChange: (k: string, v: any) => void
-}) {
-  const groups = useMemo(() => {
-    const g: Record<string, ParamSpec[]> = {}
-    specs.forEach((s) => {
-      ;(g[s.group] ||= []).push(s)
-    })
-    return g
-  }, [specs])
-
-  if (!specs.length) return <p className="text-xs text-slate-400">该策略无可调参数</p>
-
-  return (
-    <div className="space-y-4">
-      {Object.entries(groups).map(([group, items]) => (
-        <div key={group}>
-          <div className="mb-2 flex items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">{group}</span>
-            <div className="h-px flex-1 bg-slate-100" />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {items.map((p) => {
-              const v = values[p.key] ?? p.default
-              if (p.type === 'bool') {
-                return (
-                  <div key={p.key} className="sm:col-span-1">
-                    <Switch
-                      checked={!!v}
-                      onChange={(nv) => onChange(p.key, nv)}
-                      label={p.label}
-                      hint={p.help || undefined}
-                    />
-                  </div>
-                )
-              }
-              if (p.type === 'choice') {
-                return (
-                  <Field key={p.key} label={p.label} hint={p.help || undefined}>
-                    <Select value={String(v)} onChange={(e) => onChange(p.key, e.target.value)}>
-                      {(p.choices || []).map((c) => (
-                        <option key={String(c)} value={String(c)}>
-                          {String(c) || '（留空）'}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                )
-              }
-              return (
-                <Field
-                  key={p.key}
-                  label={
-                    <span className="flex items-center gap-1.5">
-                      {p.label}
-                      {p.min !== undefined && p.max !== undefined && (
-                        <span className="text-[10px] font-normal text-slate-400">
-                          [{p.min} ~ {p.max}]
-                        </span>
-                      )}
-                    </span>
-                  }
-                  hint={p.help || undefined}
-                >
-                  <Input
-                    type="number"
-                    step={p.step ?? (p.type === 'int' ? 1 : 0.01)}
-                    min={p.min}
-                    max={p.max}
-                    value={v}
-                    onChange={(e) =>
-                      onChange(p.key, p.type === 'int' ? parseInt(e.target.value || '0', 10) : parseFloat(e.target.value || '0'))
-                    }
-                  />
-                </Field>
-              )
-            })}
-          </div>
-        </div>
-      ))}
-      <button
-        className="text-xs text-brand-600 hover:underline"
-        onClick={() => specs.forEach((p) => onChange(p.key, p.default))}
-      >
-        恢复全部默认值
-      </button>
-    </div>
-  )
-}
-
-/* ================================================================
- * 规则条件行
- * ================================================================ */
-const OPS = [
-  { key: '>', label: '大于' },
-  { key: '<', label: '小于' },
-  { key: '>=', label: '大于等于' },
-  { key: '<=', label: '小于等于' },
-  { key: 'cross_above', label: '上穿' },
-  { key: 'cross_below', label: '下穿' },
-]
-const IND_OPTIONS = [
-  { key: 'close', label: '收盘价', needPeriod: false },
-  { key: 'open', label: '开盘价', needPeriod: false },
-  { key: 'high', label: '最高价', needPeriod: false },
-  { key: 'low', label: '最低价', needPeriod: false },
-  { key: 'volume', label: '成交量', needPeriod: false },
-  { key: 'sma', label: '简单均线 SMA', needPeriod: true },
-  { key: 'ema', label: '指数均线 EMA', needPeriod: true },
-  { key: 'hma', label: 'Hull 均线 HMA', needPeriod: true },
-  { key: 'rsi', label: 'RSI', needPeriod: true },
-  { key: 'macd', label: 'MACD 线', needPeriod: false },
-  { key: 'macd_hist', label: 'MACD 柱', needPeriod: false },
-  { key: 'atr', label: 'ATR 真实波幅', needPeriod: true },
-  { key: 'natr', label: 'ATR 占比 %', needPeriod: true },
-  { key: 'adx', label: 'ADX 趋势强度', needPeriod: true },
-  { key: 'plus_di', label: '+DI', needPeriod: true },
-  { key: 'minus_di', label: '-DI', needPeriod: true },
-  { key: 'bb_upper', label: '布林上轨', needPeriod: true },
-  { key: 'bb_lower', label: '布林下轨', needPeriod: true },
-  { key: 'bb_pctb', label: '布林 %B', needPeriod: true },
-  { key: 'zscore', label: 'Z 分数', needPeriod: true },
-  { key: 'roc', label: '变动率 ROC %', needPeriod: true },
-  { key: 'vol_ratio', label: '量比', needPeriod: true },
-  { key: 'cci', label: 'CCI', needPeriod: true },
-  { key: 'mfi', label: 'MFI 资金流量', needPeriod: true },
-  { key: 'cmf', label: '蔡金资金流 CMF', needPeriod: true },
-  { key: 'efficiency_ratio', label: '效率比 ER', needPeriod: true },
-  { key: 'realized_vol', label: '已实现波动率', needPeriod: true },
-  { key: 'donchian_upper', label: '唐奇安上轨', needPeriod: true },
-  { key: 'donchian_lower', label: '唐奇安下轨', needPeriod: true },
-  { key: 'vwap', label: '滚动 VWAP', needPeriod: true },
-  { key: 'dist_sma50', label: '距 SMA50 偏离', needPeriod: false },
-  { key: 'dist_sma200', label: '距 SMA200 偏离', needPeriod: false },
-]
-
-interface Cond {
-  id: number
-  leftKind: 'indicator' | 'const'
-  leftInd: string
-  leftPeriod: number
-  leftConst: number
-  op: string
-  rightKind: 'indicator' | 'const'
-  rightInd: string
-  rightPeriod: number
-  rightConst: number
-}
-
-let cid = 1
-function newCond(): Cond {
-  return {
-    id: cid++,
-    leftKind: 'indicator',
-    leftInd: 'rsi',
-    leftPeriod: 14,
-    leftConst: 0,
-    op: '<',
-    rightKind: 'const',
-    rightInd: 'sma',
-    rightPeriod: 200,
-    rightConst: 30,
-  }
-}
-
-function CondRow({
-  cond,
-  onChange,
-  onRemove,
-  removable,
-}: {
-  cond: Cond
-  onChange: (c: Cond) => void
-  onRemove: () => void
-  removable: boolean
-}) {
-  const li = IND_OPTIONS.find((i) => i.key === cond.leftInd)
-  const ri = IND_OPTIONS.find((i) => i.key === cond.rightInd)
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
-      <div className="grid gap-2 lg:grid-cols-[1fr_auto_1fr_auto]">
-        {/* 左操作数 */}
-        <div className="flex gap-2">
-          <Select
-            className="w-24"
-            value={cond.leftKind}
-            onChange={(e) => onChange({ ...cond, leftKind: e.target.value as any })}
-          >
-            <option value="indicator">指标</option>
-            <option value="const">常数</option>
-          </Select>
-          {cond.leftKind === 'const' ? (
-            <Input
-              type="number"
-              step="0.01"
-              className="flex-1"
-              value={cond.leftConst}
-              onChange={(e) => onChange({ ...cond, leftConst: parseFloat(e.target.value || '0') })}
-            />
-          ) : (
-            <>
-              <Select className="flex-1" value={cond.leftInd} onChange={(e) => onChange({ ...cond, leftInd: e.target.value })}>
-                {IND_OPTIONS.map((o) => (
-                  <option key={o.key} value={o.key}>
-                    {o.label}
-                  </option>
-                ))}
-              </Select>
-              {li?.needPeriod && (
-                <Input
-                  type="number"
-                  className="w-20"
-                  value={cond.leftPeriod}
-                  onChange={(e) => onChange({ ...cond, leftPeriod: parseInt(e.target.value || '14', 10) })}
-                />
-              )}
-            </>
-          )}
-        </div>
-
-        <Select className="w-28" value={cond.op} onChange={(e) => onChange({ ...cond, op: e.target.value })}>
-          {OPS.map((o) => (
-            <option key={o.key} value={o.key}>
-              {o.label}
-            </option>
-          ))}
-        </Select>
-
-        {/* 右操作数 */}
-        <div className="flex gap-2">
-          <Select
-            className="w-24"
-            value={cond.rightKind}
-            onChange={(e) => onChange({ ...cond, rightKind: e.target.value as any })}
-          >
-            <option value="const">常数</option>
-            <option value="indicator">指标</option>
-          </Select>
-          {cond.rightKind === 'const' ? (
-            <Input
-              type="number"
-              step="0.01"
-              className="flex-1"
-              value={cond.rightConst}
-              onChange={(e) => onChange({ ...cond, rightConst: parseFloat(e.target.value || '0') })}
-            />
-          ) : (
-            <>
-              <Select className="flex-1" value={cond.rightInd} onChange={(e) => onChange({ ...cond, rightInd: e.target.value })}>
-                {IND_OPTIONS.map((o) => (
-                  <option key={o.key} value={o.key}>
-                    {o.label}
-                  </option>
-                ))}
-              </Select>
-              {ri?.needPeriod && (
-                <Input
-                  type="number"
-                  className="w-20"
-                  value={cond.rightPeriod}
-                  onChange={(e) => onChange({ ...cond, rightPeriod: parseInt(e.target.value || '14', 10) })}
-                />
-              )}
-            </>
-          )}
-        </div>
-
-        <Button variant="ghost" size="sm" onClick={onRemove} disabled={!removable} icon={<Trash2 className="h-3.5 w-3.5" />} />
-      </div>
-    </div>
-  )
-}
-
-function condToSpec(c: Cond) {
-  const leftSpec = c.leftKind === 'const' ? { const: c.leftConst } : { indicator: c.leftInd, period: c.leftPeriod }
-  const rightSpec = c.rightKind === 'const' ? { const: c.rightConst } : { indicator: c.rightInd, period: c.rightPeriod }
-  return { left: leftSpec, op: c.op, right: rightSpec }
 }
 
 /* ================================================================
@@ -567,6 +281,9 @@ export default function Strategies() {
             </div>
           </Card>
 
+          {/* AI 策略草稿：一句话描述想法 → 基底 + 进出场 + 参数区间 + 验证计划 */}
+          <StrategyAiDraft />
+
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filtered.map((s) => (
               <Card key={s.key} className="flex flex-col transition-shadow hover:shadow-pop">
@@ -644,7 +361,7 @@ export default function Strategies() {
                     </Badge>
                   </div>
                   <p className="mt-2 text-xs text-slate-500">
-                    标的：{c.symbols.join(', ') || '未指定'} · 更新于 {c.updated_at.slice(0, 10)}
+                    标的：{symbolsToInput(c.symbols) ?? '未指定'} · 更新于 {c.updated_at.slice(0, 10)}
                   </p>
                   {c.notes && <p className="mt-1 text-[11px] text-slate-400">{c.notes}</p>}
                   <div className="mt-3 flex gap-2">
@@ -786,89 +503,16 @@ export default function Strategies() {
 
       {/* ================= Python 代码编辑器 ================= */}
       {tab === 'code' && (
-        <div className="grid gap-5 xl:grid-cols-3">
-          <Card className="xl:col-span-2" title="策略代码" subtitle="必须定义 generate(ctx) 并返回目标权重 DataFrame">
-            <textarea
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              spellCheck={false}
-              className="num h-[460px] w-full resize-y rounded-lg border border-slate-300 bg-slate-950 p-4 text-xs leading-relaxed text-slate-100 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
-            />
-            <div className="mt-3 flex items-center gap-2">
-              <Button onClick={checkCode} icon={<Check className="h-3.5 w-3.5" />}>
-                安全校验
-              </Button>
-              <Button variant="ghost" onClick={() => setCode(dsl?.code_template || '')}>
-                恢复模板
-              </Button>
-              <Button
-                variant="primary"
-                onClick={() => saveCode()}
-                icon={<Save className="h-3.5 w-3.5" />}
-                className="ml-auto"
-              >
-                保存策略
-              </Button>
-            </div>
-            {codeCheck && (
-              <Alert tone={codeCheck.ok ? 'success' : 'danger'} className="mt-3" title={codeCheck.ok ? '通过校验' : '被拦截'}>
-                {codeCheck.msg}
-              </Alert>
-            )}
-          </Card>
-
-          <div className="space-y-5">
-            <Card title="策略名称">
-              <Field label="保存为" hint="保存后可在「我的策略」中回测">
-                <Input value={codeName} onChange={(e) => setCodeName(e.target.value)} placeholder="我的动量策略" />
-              </Field>
-            </Card>
-
-            <Card title="沙箱规则">
-              <Alert tone="warn" title="代码策略属高风险功能">
-                服务端会先做 AST 白名单校验，阻止导入系统模块、访问私有属性、调用 eval/exec/open 等。
-                即便如此，仍建议仅在本地单用户环境使用。
-              </Alert>
-              <ul className="mt-3 space-y-2 text-xs text-slate-600">
-                <li className="flex gap-2">
-                  <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                  允许导入：{dsl?.code_limits?.allowed_imports?.join('、') || 'pandas、numpy、math、statistics'}
-                </li>
-                <li className="flex gap-2">
-                  <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                  可使用 ctx.closes（收盘价矩阵）、ctx.data[代码]（完整 OHLCV）
-                </li>
-                <li className="flex gap-2">
-                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
-                  禁止：import os/sys、eval、exec、open、__import__、__xxx__ 属性、while True
-                </li>
-                <li className="flex gap-2">
-                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
-                  代码长度上限 {dsl?.code_limits?.max_chars || 8000} 字符
-                </li>
-              </ul>
-            </Card>
-
-            <Card title="可用数据">
-              <pre className="overflow-auto rounded-lg bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">
-{`ctx.closes      # DataFrame(日期 × 标的) 收盘价
-ctx.high        # 最高价
-ctx.low         # 最低价
-ctx.volume      # 成交量
-ctx.symbols     # 标的列表
-ctx.data['SPY'] # 单标的 OHLCV DataFrame
-
-# 返回示例（等权做多动量最强的 2 只）：
-import pandas as pd
-def generate(ctx):
-    mom = ctx.closes / ctx.closes.shift(60) - 1
-    w = pd.DataFrame(0.0, index=ctx.closes.index, columns=ctx.closes.columns)
-    w[mom > 0] = 0.5
-    return w`}
-              </pre>
-            </Card>
-          </div>
-        </div>
+        <CodeStrategyEditor
+          code={code}
+          onCodeChange={setCode}
+          codeName={codeName}
+          onNameChange={setCodeName}
+          codeCheck={codeCheck}
+          dsl={dsl}
+          onCheck={checkCode}
+          onSave={saveCode}
+        />
       )}
 
       {/* ================= 参数弹窗 ================= */}

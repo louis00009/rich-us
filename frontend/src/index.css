@@ -43,7 +43,12 @@ body {
   @apply rounded-xl border border-slate-200 bg-white shadow-card;
 }
 .card-hd {
-  @apply flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3;
+  /* ⚠️ 必须有 flex-wrap：右侧 actions 是 shrink-0（不可压缩），左侧标题/副标题是
+     min-w-0（可压缩到 0）。窄栏卡片（如行情页右栏 ~205px）里一旦 actions 变宽
+     （出结果后多出「本地规则兜底」徽章 + 复制 + 重新生成 两个按钮），
+     左侧会被压成 0 宽 → 副标题**每行只显示一个字**，竖着排下来。
+     加了 flex-wrap 后放不下就把 actions 换到第二行，而不是把文字挤死。 */
+  @apply flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3;
 }
 .card-bd {
   @apply p-4;

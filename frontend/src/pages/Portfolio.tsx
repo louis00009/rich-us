@@ -19,6 +19,8 @@ import {
 import { api } from '../lib/api'
 import { fmtAgo, fmtDateTime, fmtMoney, fmtNum, signClass } from '../lib/format'
 import type { AccountSnapshot, OrderRow, PositionItem } from '../lib/types'
+import AIAssist from '../components/AIAssist'
+import PeriodReviewAi from '../components/PeriodReviewAi'
 
 export default function Portfolio() {
   const toast = useToast()
@@ -357,6 +359,29 @@ export default function Portfolio() {
               ))}
             </div>
           </Card>
+
+          {/* AI 组合点评：风格 / 集中度 / 盈亏结构 + 再平衡方向（只给方向，不下单） */}
+          <AIAssist
+            mode="panel"
+            task="portfolio_review"
+            title="AI 组合点评"
+            desc="点评风格、集中度与盈亏结构，给出再平衡的优先级方向"
+            label="点评我的组合"
+            payload={{
+              account: acc,
+              exposure: expo,
+              limits,
+              positions,
+              recent_orders: orders.slice(0, 15),
+            }}
+            runKey={`${positions.length}:${gross.toFixed(0)}:${totalUnreal.toFixed(0)}`}
+            disabled={positions.length === 0}
+            disabledHint="当前没有持仓可点评。"
+            emptyHint="AI 会给出组合画像、风险体检、值得关注的持仓，以及只讲方向的再平衡思路。"
+          />
+
+          {/* AI 交易复盘：看「一段过程」而非「当下快照」—— 盈亏归因 + 决策链条问题 */}
+          <PeriodReviewAi orders={orders} positions={positions} account={acc} />
         </div>
       </div>
     </div>

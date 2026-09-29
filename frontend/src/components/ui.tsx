@@ -4,6 +4,7 @@
  */
 import clsx from 'clsx'
 import { AlertTriangle, CheckCircle2, Info, Loader2, X, XCircle } from 'lucide-react'
+import { createPortal } from 'react-dom'
 import { downClass, upClass } from '../lib/format'
 import {
   cloneElement,
@@ -316,7 +317,17 @@ export function Modal({
   }, [open, onClose])
 
   if (!open) return null
-  return (
+  // ⚠️ **必须 portal 到 body**。Modal 若留在原来的 DOM 位置，只要**任一祖先**带
+  //    `backdrop-filter` / `filter` / `transform` / `perspective` / `will-change` /
+  //    `contain`，那个祖先就会成为 `position: fixed` 的**包含块** ——
+  //    于是 `inset-0` 不再是视口，弹窗被压进祖先那一小块区域里。
+  //    真实踩过：榜单多选工具条是 `sticky top-0 … backdrop-blur`，点「AI 深度分析」
+  //    弹窗不居中、只显示成工具栏大小的一条（对话框 y=715 而不是视口顶部）。
+  //    与 InfoTip 同一套修法（那里是 `overflow-x-auto` 裁掉气泡）。
+  //    SSR 下 `document` 不存在：Modal 默认 `open=false` 已提前 return，
+  //    这里再兜一层，避免有人在 SSR 里传 open=true 直接炸掉整页。
+  if (typeof document === 'undefined') return null
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 py-12 backdrop-blur-sm">
       {/* 无障碍：dialog 语义 + 焦点落点（Esc 关闭已由上方键盘监听处理） */}
       <div
@@ -339,7 +350,8 @@ export function Modal({
         <div className={clsx('card-bd px-5 py-4', bodyClass || 'max-h-[70vh] overflow-y-auto')}>{children}</div>
         {footer && <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-3">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

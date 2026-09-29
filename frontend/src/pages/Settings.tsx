@@ -16,6 +16,8 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import DataSourcePanel from '../components/DataSourcePanel'
+import TwelveDataKeys from '../components/TwelveDataKeys'
 import {
   Alert,
   Badge,
@@ -34,6 +36,7 @@ import {
   useToast,
 } from '../components/ui'
 import { api, getUser } from '../lib/api'
+import { invalidateAiStatus } from '../lib/ai'
 import { fmtAgo, fmtNum, getColorMode, setColorMode, type ColorMode } from '../lib/format'
 import type { SystemStatus } from '../lib/types'
 
@@ -64,7 +67,12 @@ export default function Settings() {
   const [saving, setSaving] = useState(false)
   const [colorMode, setCM] = useState<ColorMode>(getColorMode())
   const [dsInfo, setDsInfo] = useState<any>(null)
-  const [dsPreferred, setDsPreferred] = useState('auto')
+
+  const [aiCfg, setAiCfg] = useState<any>(null)
+  const [aiModels, setAiModels] = useState<any>(null)
+  const [aiKeyInput, setAiKeyInput] = useState('')
+  const [aiSaving, setAiSaving] = useState(false)
+  const [aiTesting, setAiTesting] = useState(false)
 
   const [pwdOpen, setPwdOpen] = useState(false)
   const [curPwd, setCurPwd] = useState('')
@@ -78,6 +86,7 @@ export default function Settings() {
       api.get<any>('/market/catalog'),
       api.get<any>('/system/audit-summary'),
       api.get<any>('/market/data-source'),
+      api.get<any>('/system/ai'),
     ])
     if (rs[0].status === 'fulfilled') setStatus(rs[0].value)
     if (rs[1].status === 'fulfilled') {
@@ -87,9 +96,10 @@ export default function Settings() {
     }
     if (rs[2].status === 'fulfilled') setCatalog(rs[2].value)
     if (rs[3].status === 'fulfilled') setAudit(rs[3].value)
-    if (rs[4].status === 'fulfilled') {
-      setDsInfo(rs[4].value)
-      setDsPreferred(rs[4].value.preferred || 'auto')
+    if (rs[4].status === 'fulfilled') setDsInfo(rs[4].value)
+    if (rs[5].status === 'fulfilled') {
+      setAiCfg(rs[5].value.config)
+      setAiModels(rs[5].value.models)
     }
     setLoading(false)
   }, [])
@@ -137,6 +147,44 @@ export default function Settings() {
     }
   }
 
+  const saveAi = async () => {
+    if (!aiCfg?.model) {
+      toast('warning', '请先选择模型')
+      return
+    }
+    setAiSaving(true)
+    try {
+      const payload: any = {
+        model: aiCfg.model,
+        base_url: aiCfg.base_url || 'http://127.0.0.1:16689',
+      }
+      if (aiKeyInput.trim()) payload.api_key = aiKeyInput.trim()
+      const r = await api.put<any>('/system/ai', payload)
+      setAiCfg(r.config)
+      setAiKeyInput('')
+      // 让其它页面（AI 助手卡片）立刻看到新模型，而不是等下次刷新
+      invalidateAiStatus()
+      toast('success', 'AI 全局配置已保存')
+      load()
+    } catch (e: any) {
+      toast('error', e?.message || '保存失败')
+    } finally {
+      setAiSaving(false)
+    }
+  }
+
+  const testAi = async () => {
+    setAiTesting(true)
+    try {
+      const r = await api.post<any>('/system/ai/test')
+      toast(r.ok ? 'success' : 'error', r.message)
+    } catch (e: any) {
+      toast('error', e?.message || '测试失败')
+    } finally {
+      setAiTesting(false)
+    }
+  }
+
   const changePwd = async () => {
     if (newPwd !== confirmPwd) {
       toast('warning', '两次输入的新口令不一致')
@@ -171,6 +219,7 @@ export default function Settings() {
         onChange={setTab}
         tabs={[
           { key: 'broker', label: '券商连接' },
+          { key: 'ai', label: 'AI 分析' },
           { key: 'security', label: '安全与实盘' },
           { key: 'data', label: '数据与缓存' },
           { key: 'ui', label: '界面偏好' },
@@ -348,6 +397,118 @@ export default function Settings() {
         </div>
       )}
 
+      {/* ============ AI 分析 ============ */}
+      {tab === 'ai' && aiCfg && (
+        <div className="grid gap-5 xl:grid-cols-3">
+          <Card
+            className="xl:col-span-2"
+            title="AI 全局模型"
+            subtitle="AI 研判 / AI Copilot 的默认模型。下拉列出网关的全部国内与国际模型，保存即生效，无需重启"
+          >
+            <div className="space-y-4">
+              <Field
+                label="分析模型"
+                hint={
+                  aiModels?.ok
+                    ? `网关共 ${((aiModels.cn || []).length + (aiModels.global || []).length)} 个模型（国内 ${(aiModels.cn || []).length} · 国际 ${(aiModels.global || []).length}）`
+                    : '网关不可达：请先运行 aistart.bat 启动 AI 服务'
+                }
+              >
+                <Select
+                  value={aiCfg.model}
+                  onChange={(e) => setAiCfg((c: any) => ({ ...c, model: e.target.value }))}
+                >
+                  {(aiModels?.cn || []).length > 0 && (
+                    <optgroup label={`国内模型（${(aiModels.cn || []).length}）`}>
+                      {aiModels.cn.map((m: string) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {(aiModels?.global || []).length > 0 && (
+                    <optgroup label={`国际模型（${(aiModels.global || []).length}）`}>
+                      {aiModels.global.map((m: string) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {aiCfg.model && !(aiModels?.cn || []).includes(aiCfg.model) && !(aiModels?.global || []).includes(aiCfg.model) && (
+                    <option value={aiCfg.model}>{aiCfg.model}（当前，网关清单中未返回）</option>
+                  )}
+                </Select>
+              </Field>
+
+              {aiModels?.ok === false && (
+                <Alert tone="danger" title="网关不可达">
+                  {aiModels?.error || '未知错误'} —— 请确认已运行 IBKR 目录下的 aistart.bat（或 wbm.sh start）。
+                </Alert>
+              )}
+              {aiModels?.ok && (aiModels?.global || []).length === 0 && (
+                <Alert tone="info" title="没有看到国际模型？">
+                  网关按密钥的版本归属过滤清单。到 WorkBuddy 面板（127.0.0.1:16689）「密钥」页，把当前密钥的版本改为「不限定」，即可解锁全部国际模型。
+                </Alert>
+              )}
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="网关地址（OpenAI 兼容）" hint="仅允许本机回环地址">
+                  <Input
+                    value={aiCfg.base_url || ''}
+                    onChange={(e) => setAiCfg((c: any) => ({ ...c, base_url: e.target.value }))}
+                    placeholder="http://127.0.0.1:16689"
+                  />
+                </Field>
+                <Field label="网关密钥" hint={aiCfg.api_key ? `当前：${aiCfg.api_key}（留空 = 保持不变）` : '面板「密钥」页签发的 wbk_ 密钥'}>
+                  <Input
+                    type="password"
+                    value={aiKeyInput}
+                    onChange={(e) => setAiKeyInput(e.target.value)}
+                    placeholder={aiCfg.api_key ? '留空保持现有密钥' : 'wbk_...'}
+                  />
+                </Field>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <Button onClick={saveAi} disabled={aiSaving}>
+                  <Save className="h-4 w-4" />
+                  {aiSaving ? '保存中…' : '保存 AI 配置'}
+                </Button>
+                <Button variant="secondary" onClick={testAi} disabled={aiTesting}>
+                  <Unplug className="h-4 w-4" />
+                  {aiTesting ? '测试中…' : '测试连通（真实调用一次）'}
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          <Card title="说明" subtitle="这条链路走的是什么">
+            <div className="space-y-3 text-sm opacity-80">
+              <p>
+                保存后，平台<strong className="font-medium">所有 AI 功能</strong>都会走这里配置的网关：
+                AI 研判、AI Copilot，以及散落在各页的 AI 助手卡片（行情页个股快评与新闻要点、
+                榜单候选池点评、回测诊断、寻优解读、风控体检、组合点评、订单诊断、情报解读、盘面简报）。
+                额度来自 WorkBuddy 账号池，按调用计费，在面板「调用日志」里逐条可查。
+              </p>
+              <p>
+                未配置网关时不会报错：每个 AI 助手都会退回<span className="font-medium">确定性的本地规则兜底</span>，
+                页面照常可用，只是少了自然语言深度解读。
+              </p>
+              <p>
+                单次分析也可以临时换模型：AI 页的「模型」下拉（仅本次生效）；
+                这里改的是全局默认。
+              </p>
+              <p>
+                Claude Code 编码助手用的是另一份配置
+                （.claude/settings.local.json），与本卡互不影响。
+              </p>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* ============ 安全 ============ */}
       {tab === 'security' && (
         <div className="grid gap-5 xl:grid-cols-3">
@@ -467,111 +628,9 @@ export default function Settings() {
       {tab === 'data' && (
         <div className="grid gap-5 xl:grid-cols-3">
           <Card className="xl:col-span-2" title="行情数据源" subtitle="三级自动降级，保证永远有数据可用">
-            <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50/60 p-3.5">
-              <div className="flex flex-wrap items-end gap-3">
-                <Field label="数据源偏好" className="min-w-[240px] flex-1" hint={dsInfo?.note}>
-                  <Select
-                    value={dsPreferred}
-                    onChange={async (e) => {
-                      const v = e.target.value
-                      try {
-                        const r = await api.post<{ preferred: string }>('/market/data-source', { preferred: v })
-                        setDsPreferred(r.preferred)
-                        toast('success', `数据源偏好已设为「${r.preferred}」`)
-                      } catch (err: any) {
-                        toast('error', err?.message || '切换失败')
-                      }
-                    }}
-                  >
-                    <option value="auto">自动（yfinance → Stooq → 合成）</option>
-                    <option value="ibkr">
-                      IBKR 优先{dsInfo?.providers?.ibkr?.available ? '（已连接）' : '（未连接，会自动降级）'}
-                    </option>
-                  </Select>
-                </Field>
-                <div className="pb-1">
-                  <Badge tone={dsInfo?.providers?.ibkr?.available ? 'green' : 'slate'} dot>
-                    IBKR {dsInfo?.providers?.ibkr?.available ? '可用' : '不可用'}
-                  </Badge>
-                </div>
-              </div>
-              {!dsInfo?.providers?.ibkr?.available && (
-                <p className="mt-2 text-xs text-amber-700">
-                  提示：{dsInfo?.providers?.ibkr?.reason}。IBKR 行情对日内策略尤其重要 ——
-                  免费源只能提供约 60 天的分钟级数据。
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              {[
-                { n: '1', name: 'IBKR 券商行情', desc: '与实盘完全一致的实时/延迟行情，分钟级数据可回溯数年（需先在券商连接中连上）。', tag: 'green' },
-                { n: '2', name: '本地缓存', desc: '拉取成功后按周期写入本地 CSV，不同周期 TTL 不同（日线 6 小时、5 分钟线 5 分钟）。', tag: 'slate' },
-                { n: '3', name: 'yfinance', desc: '首选免费源。支持日线/周线/小时/30m/15m/5m，覆盖美股、ETF、指数。', tag: 'blue' },
-                { n: '4', name: 'Stooq CSV', desc: '纯 HTTP 免费日线源，无需 API Key，作为 yfinance 不可用时的兜底。', tag: 'blue' },
-                { n: '5', name: '合成行情', desc: '按标的哈希生成的确定性行情，仅用于离线界面演示 —— 界面会明确标注「合成数据」。', tag: 'amber' },
-              ].map((s) => (
-                <div key={s.n} className="flex items-start gap-3 rounded-lg border border-slate-200 p-3">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">
-                    {s.n}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-slate-800">{s.name}</span>
-                      <Badge tone={s.tag as any}>{s.n === '5' ? '非真实数据' : '可用'}</Badge>
-                    </div>
-                    <p className="mt-1 text-xs text-slate-500">{s.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-5 border-t border-slate-100 pt-4">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">源健康状态（T-121/137）</span>
-                <Button
-                  className="!px-2 !py-1 text-[11px]"
-                  onClick={async () => {
-                    try {
-                      const t0 = Date.now()
-                      await api.get('/market/history?symbol=SPY&start=2026-08-01&interval=1d', 30_000)
-                      toast('success', `探测成功：SPY 日线 ${(Date.now() - t0)}ms`)
-                      load()
-                    } catch (e: any) {
-                      toast('error', `探测失败：${e?.message || '超时'}`)
-                    }
-                  }}
-                >
-                  探测链路
-                </Button>
-              </div>
-              {/* 各源最近失败原因（空 = 全部健康） */}
-              {dsInfo?.recent_errors && Object.keys(dsInfo.recent_errors).length > 0 ? (
-                <div className="mb-3 space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
-                  {Object.entries(dsInfo.recent_errors).map(([k, v]: any) => (
-                    <div key={k} className="text-[11px] text-amber-800">
-                      <span className="font-semibold">{k}</span>：{v}
-                    </div>
-                  ))}
-                  <div className="text-[10px] text-amber-600">失败会在下一次请求自动重试；频繁出现可切换数据源偏好。</div>
-                </div>
-              ) : (
-                <div className="mb-3 rounded-lg border border-emerald-100 bg-emerald-50 px-2.5 py-2 text-[11px] text-emerald-700">
-                  ✅ 全部数据源近期无失败记录
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {Object.entries(dsInfo?.providers || {}).map(([name, p]: any) => (
-                  <div key={name} className="rounded-lg border border-slate-200 px-2.5 py-2">
-                    <div className="text-xs font-medium text-slate-700">{name}</div>
-                    <div className="mt-0.5 flex items-center gap-1 text-[10px] text-slate-400">
-                      <span className={`inline-block h-1.5 w-1.5 rounded-full ${p?.available ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                      {p?.available ? '可用' : '不可用'}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* 数据源偏好 + 降级链 + 源健康状态：全部字段来自后端 /market/data-source，
+                避免前端硬编码链（曾漏掉 TwelveData，用户在设置页看不到自己配的源） */}
+            <DataSourcePanel info={dsInfo} onChanged={load} />
 
             <div className="mt-5 grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 sm:grid-cols-3">
               <Stat label="缓存文件" value={String(catalog?.cache?.files ?? 0)} icon={<Database className="h-4 w-4" />} />
@@ -596,6 +655,9 @@ export default function Settings() {
             </div>
             <p className="mt-2 text-[11px] text-slate-400">缓存目录：{catalog?.cache?.dir}</p>
           </Card>
+
+          {/* TwelveData 多 Key 轮询池（自包含组件；本文件已超 900 行硬上限，只做一行挂载） */}
+          <TwelveDataKeys />
 
           <Card title="审计概览">
             {audit ? (

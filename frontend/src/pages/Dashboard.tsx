@@ -15,6 +15,7 @@ import { Link } from 'react-router-dom'
 
 import { Alert, Badge, Button, Card, DataTable, Empty, Loading, Progress, Stat, useToast } from '../components/ui'
 import WatchBar from '../components/WatchBar'
+import AIAssist from '../components/AIAssist'
 import { api } from '../lib/api'
 import { rtSubscribe } from '../lib/realtime'
 import { fmtAgo, fmtCompact, fmtMoney, fmtNum, fmtRatioPct, signClass } from '../lib/format'
@@ -269,6 +270,25 @@ export default function Dashboard() {
           )}
         </Card>
       </div>
+
+      {/* AI 盘面简报：把主要指数与账户概况压成一段可读简报 */}
+      <AIAssist
+        mode="panel"
+        task="market_briefing"
+        title="AI 盘面简报"
+        desc="风险偏好状态 · 最值得注意的异动 · 对当前持仓的方向性含义"
+        label="生成盘面简报"
+        payload={{
+          quotes,
+          account: acc,
+          positions,
+          system: status ? { mode: status.mode, kill_switch: status.kill_switch } : undefined,
+        }}
+        runKey={`${quotes.length}:${positions.length}`}
+        disabled={quotes.length === 0}
+        disabledHint="行情尚未加载，无法生成简报。"
+        emptyHint="AI 会判断今天是进攻还是防御，指出 2 个异动，并说明对现有持仓的含义。"
+      />
 
       <div className="grid gap-5 xl:grid-cols-3">
         {/* 持仓 */}

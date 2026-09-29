@@ -32,6 +32,7 @@ import {
 import { api } from '../lib/api'
 import { fmtAgo, fmtDateTime, fmtMoney, fmtNum } from '../lib/format'
 import type { AuditRow, RiskConfig } from '../lib/types'
+import AIAssist from '../components/AIAssist'
 
 const STOP_GALLERY = [
   { key: 'none', label: '不启用', desc: '仅靠策略信号离场' },
@@ -535,6 +536,20 @@ export default function Risk() {
               <Loading />
             )}
           </Card>
+
+          {/* AI 风控体检：检查参数自洽性 + 当前敞口的真实风险点 */}
+          <AIAssist
+            mode="panel"
+            task="risk_review"
+            title="AI 风控体检"
+            desc="检查参数之间的自洽性（如单标的上限 × 持仓数 vs 总敞口上限）与当前敞口风险"
+            label="体检这套风控"
+            payload={{ config: cfg, exposure: expo }}
+            runKey={`${cfg?.max_position_pct}:${cfg?.max_gross_exposure_pct}:${cfg?.max_open_positions}:${expo?.gross_pct}`}
+            disabled={!cfg}
+            disabledHint="风控配置未加载。"
+            emptyHint="AI 会指出哪些约束实际上永远不会被触发，并给出具体调整区间与极端行情情景推演。"
+          />
         </div>
       )}
 

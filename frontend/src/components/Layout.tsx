@@ -21,6 +21,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import AlertsBell from './AlertsBell'
 import DataClock from './DataClock'
+import LinkStatus from './LinkStatus'
 import { api } from '../lib/api'
 import { getColorMode, setColorMode, type ColorMode } from '../lib/format'
 import type { SystemStatus } from '../lib/types'
@@ -30,7 +31,7 @@ import { Badge, Button, Modal } from './ui'
 const NAV = [
   { to: '/dashboard', label: '仪表盘', icon: LayoutDashboard, desc: '账户总览与市场快照' },
   { to: '/market', label: '行情分析', icon: CandlestickChart, desc: 'K 线与技术指标' },
-  { to: '/rankings', label: '美股榜单', icon: Trophy, desc: 'S&P 500 涨跌与成交排行' },
+  { to: '/rankings', label: '美股榜单', icon: Trophy, desc: '美股 2200+ 只行情与估值排行' },
   { to: '/strategies', label: '策略实验室', icon: FlaskConical, desc: '内置策略与自定义策略' },
   { to: '/backtest', label: '回测中心', icon: BarChart3, desc: '历史回测与参数寻优' },
   { to: '/optimize', label: '组合优化', icon: Scaling, desc: '权重求解与有效前沿' },
@@ -158,6 +159,9 @@ export default function Layout() {
               {status?.broker === 'ibkr' ? `IBKR ${status.broker_host}` : '内置模拟券商'}
             </Badge>
           </div>
+
+          {/* 外部链路连通性：券商 TWS + AI 网关（绿=通 / 红=异常，点开可重试） */}
+          <LinkStatus />
 
           <DataClock />
 

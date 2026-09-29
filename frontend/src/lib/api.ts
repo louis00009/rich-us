@@ -113,6 +113,8 @@ export const api = {
     request<T>(p, { method: 'POST', body: body ? JSON.stringify(body) : undefined }, timeoutMs),
   put: <T,>(p: string, body?: any, timeoutMs?: number) =>
     request<T>(p, { method: 'PUT', body: body ? JSON.stringify(body) : undefined }, timeoutMs),
+  patch: <T,>(p: string, body?: any, timeoutMs?: number) =>
+    request<T>(p, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined }, timeoutMs),
   del: <T,>(p: string, timeoutMs?: number) => request<T>(p, { method: 'DELETE' }, timeoutMs),
 }
 
