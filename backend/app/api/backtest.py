@@ -14,7 +14,7 @@ from ..engine import BacktestSpec, grid_optimize, run_backtest
 from ..engine.metrics import METRIC_LABELS
 from ..models import BacktestRun
 from ..risk.stops import STOP_TYPES, StopConfig
-from ..schemas import BacktestRequest, CompareItem, CompareRequest, OptimizeRequest
+from ..schemas import BacktestRequest, CompareItem, CompareRequest, FactorICRequest, OptimizeRequest
 from .deps import CurrentUser, DbSession
 
 router = APIRouter(prefix="/backtest", tags=["回测"])
@@ -104,6 +104,11 @@ async def run(payload: BacktestRequest, user: CurrentUser, db: DbSession) -> dic
         symbols_json=json.dumps(payload.symbols),
         start_date=payload.start, end_date=payload.end or dt.date.today().isoformat(),
         initial_capital=payload.initial_capital,
+        benchmark=payload.benchmark or "SPY",
+        commission_bps=float(payload.commission_bps or 0.0),
+        slippage_bps=float(payload.slippage_bps or 0.0),
+        interval=payload.interval or "1d",
+        data_source=payload.data_source or "auto",
         metrics_json=json.dumps(result["metrics"], ensure_ascii=False),
         equity_json=json.dumps(result["curve"][:: max(1, len(result["curve"]) // 400)]),
         trades_json=json.dumps(result["trades"][:300], ensure_ascii=False),
@@ -299,6 +304,51 @@ async def compare(payload: CompareRequest, user: CurrentUser) -> dict:
 
 
 # ==================================================================
+# 因子 IC 诊断（多因子策略的因子质量评估，纯离线研究工具）
+# ==================================================================
+@router.post("/factor-ic")
+async def factor_ic(payload: FactorICRequest, user: CurrentUser) -> dict:
+    """各启用因子与未来 N 日收益的横截面 Spearman 相关（IC）统计。
+
+    注意：IC 分析天然使用未来收益做对账，**只用于评估因子质量**，
+    不进入任何交易信号路径（与回测的无未来函数铁律互不冲突）。
+    """
+    from ..data_provider import fetch_many
+    from ..engine.factor_analysis import factor_ic_report
+    from ..strategies import SignalContext, create_strategy
+
+    try:
+        strategy = create_strategy(payload.strategy_key, payload.params or {})
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(400, f"无法创建策略 {payload.strategy_key}：{exc}") from exc
+    if not hasattr(strategy, "_active_factors"):
+        raise HTTPException(400, "该策略不提供因子诊断（仅多因子打分策略支持）")
+
+    end = payload.end or dt.date.today().isoformat()
+
+    def _run() -> dict:
+        data, _sources = fetch_many(payload.symbols, payload.start, end, payload.interval)
+        symbols = [s for s in payload.symbols if s in data and len(data[s])]
+        if len(symbols) < payload.min_names:
+            raise ValueError(f"有效标的数据不足（{len(symbols)} < {payload.min_names}），请检查区间与数据源")
+        ctx = SignalContext(data=data, symbols=symbols)
+        return factor_ic_report(strategy, ctx, horizon=payload.horizon, min_names=payload.min_names)
+
+    try:
+        res = await run_in_threadpool(_run)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(400, f"因子诊断失败：{type(exc).__name__}: {exc}"[:200]) from exc
+    await run_in_threadpool(
+        appstate.log, "backtest_factor_ic", "INFO",
+        f"因子诊断 {payload.strategy_key} horizon={payload.horizon} 标的 {len(payload.symbols)}",
+        user.username,
+    )
+    return res
+
+
+# ==================================================================
 # 导出
 # ==================================================================
 @router.get("/{rid}/export")
@@ -403,6 +453,11 @@ def detail(rid: int, db: DbSession, user: CurrentUser) -> dict:  # noqa: ARG001
         "params": _j(r.params_json, {}), "risk": _j(r.risk_json, {}),
         "start": r.start_date, "end": r.end_date,
         "initial_capital": r.initial_capital,
+        "benchmark": getattr(r, "benchmark", "") or "SPY",
+        "commission_bps": float(getattr(r, "commission_bps", 0.0) or 0.0),
+        "slippage_bps": float(getattr(r, "slippage_bps", 0.0) or 0.0),
+        "interval": getattr(r, "interval", "1d") or "1d",
+        "data_source": getattr(r, "data_source", "") or "auto",
         "metrics": _j(r.metrics_json, {}),
         "curve": _j(r.equity_json, []),
         "trades": _j(r.trades_json, []),
