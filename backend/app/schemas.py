@@ -207,6 +207,18 @@ class CompareRequest(BaseModel):
     data_source: str = "auto"
 
 
+class FactorICRequest(BaseModel):
+    """因子 IC 诊断请求（离线研究工具，允许使用未来收益对账）。"""
+    strategy_key: str = "multi_factor_score"
+    symbols: list[str] = Field(min_length=2, max_length=50)
+    start: str = ""
+    end: str | None = None
+    interval: Literal["1d", "1wk", "1h", "30m", "15m", "5m"] = "1d"
+    params: dict[str, Any] = {}
+    horizon: int = Field(21, ge=1, le=252)
+    min_names: int = Field(4, ge=2, le=20)
+
+
 # ------------------------------------------------------------------
 # 组合优化（均值方差 / 风险平价）
 # ------------------------------------------------------------------
@@ -330,6 +342,35 @@ class BrokerSettingsIn(BaseModel):
 # ------------------------------------------------------------------
 # AI
 # ------------------------------------------------------------------
+class AISettingsIn(BaseModel):
+    """设置页「AI 分析」卡片的全局配置（state.ai_settings 运行时持久化）。"""
+    model: str = Field(..., min_length=1, max_length=120)
+    base_url: str | None = Field(None, max_length=300)
+    api_key: str | None = Field(None, max_length=300)  # 空/None = 保持现有密钥
+
+    @field_validator("base_url")
+    @classmethod
+    def _loopback_only(cls, v: str | None) -> str | None:
+        """与券商设置同口径：AI 网关地址只允许本机回环（防 SSRF 跳板）。
+
+        WorkBuddy Manager 网关本来就跑在 127.0.0.1；若确有远程网关需求，
+        应通过环境变量 QD_AI_BASE_URL 配置并自行承担风险。
+        """
+        if v is None:
+            return v
+        h = (v or "").strip()
+        if not h:
+            return None
+        from urllib.parse import urlparse
+        host = (urlparse(h if "//" in h else f"http://{h}").hostname or "").lower()
+        allowed = {"127.0.0.1", "localhost", "::1"}
+        if host not in allowed:
+            raise ValueError(
+                f"AI 网关地址仅允许本机回环（{' / '.join(sorted(allowed))}），收到主机：{host!r}"
+            )
+        return h.rstrip("/")
+
+
 class AnalyzeRequest(BaseModel):
     symbols: list[str] = Field(min_length=1, max_length=12)
     horizon: Literal["intraday", "swing", "position"] = "swing"
@@ -344,3 +385,17 @@ class ChatRequest(BaseModel):
     context_symbols: list[str] = []
     history: list[dict[str, str]] = []
     model: str = ""
+
+
+class AiAssistRequest(BaseModel):
+    """统一 AI 助手请求（AI Task Hub）。
+
+    一个入口覆盖全平台所有 AI 接入点：`task` 选任务，`payload` 传该任务
+    需要的原始数据（由前端把**页面上真实的数据**原样带过来，后端只做裁剪与
+    校验，避免二次取数导致前后端看到的数据不一致）。
+    """
+
+    task: str = Field(..., min_length=1, max_length=64)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    model: str = ""            # 空 = 跟随「设置 → AI 分析」的全局模型
+    force_local: bool = False  # true = 跳过 LLM，只用规则化兜底（用于「纯本地模式」对照）

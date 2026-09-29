@@ -93,6 +93,40 @@ def set_broker_settings(cfg: dict[str, Any]) -> dict[str, Any]:
 
 
 # ------------------------------------------------------------------
+# AI（LLM）全局设置 —— 设置页「AI 分析」卡片的运行时配置
+# ------------------------------------------------------------------
+# 优先级：这里存的运行时配置 > 环境变量 QD_AI_*（ai_analyst._llm_config_for）。
+# 典型用法：对接本机 WorkBuddy Manager 网关（CodeBuddy 账号池），
+#   base_url = http://127.0.0.1:16689，api_key = 面板「密钥」页签发的 wbk_...
+AI_KEY = "ai_settings"
+
+DEFAULT_AI: dict[str, Any] = {
+    "base_url": app_settings.ai_base_url,
+    "api_key": app_settings.ai_api_key,
+    "model": app_settings.ai_model,
+}
+
+
+def get_ai_settings() -> dict[str, Any]:
+    raw = get_setting(AI_KEY, "")
+    if not raw:
+        return dict(DEFAULT_AI)
+    try:
+        data = json.loads(raw)
+        return {**DEFAULT_AI, **data}
+    except json.JSONDecodeError:
+        return dict(DEFAULT_AI)
+
+
+def set_ai_settings(cfg: dict[str, Any]) -> dict[str, Any]:
+    cur = get_ai_settings()
+    # api_key 为空字符串 = 「保持现有密钥不变」（前端掩码回显场景）
+    merged = {**cur, **{k: v for k, v in cfg.items() if v not in (None, "")}}
+    set_setting(AI_KEY, json.dumps(merged))
+    return merged
+
+
+# ------------------------------------------------------------------
 # 风控配置
 # ------------------------------------------------------------------
 RISK_COLUMNS = [    "max_position_pct", "max_gross_exposure_pct", "max_open_positions", "min_order_notional",

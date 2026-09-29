@@ -61,6 +61,8 @@ def _backup_db() -> None:
             old.unlink()
         except OSError:
             pass
+        except BaseException:  # noqa: BLE001 —— safe-delete 护栏会抛 SystemExit：
+            pass                # 备份清理失败绝不能杀死服务启动（实证过一次）
     log.info("数据库已备份 → %s", Path(dest).name)
 
 
@@ -72,7 +74,8 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
     log.info("  监听地址      : http://%s:%s", settings.host, settings.port)
     log.info("  运行目录      : %s", RUNTIME_DIR)
     log.info("  实盘环境开关  : %s", "已开启 ⚠️" if settings.allow_live_trading else "已关闭（安全默认）")
-    log.info("  前端构建产物  : %s", "已挂载" if (FRONTEND_DIST / "index.html").exists() else "未构建")
+    log.info("  前端构建产物  : %s（路由已无条件注册，产物就绪后自动生效，无需重启）",
+             "已构建" if (FRONTEND_DIST / "index.html").exists() else "未构建")
     log.info("=" * 68)
     audit_log("app_start", "INFO", f"服务启动 v{settings.version}")
     # T-139：启动时备份数据库（VACUUM INTO，保留最近 7 份）
@@ -80,13 +83,58 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
         _backup_db()
     except Exception as exc:  # noqa: BLE001
         log.warning("启动备份失败（不影响运行）: %s", exc)
-    # 后台预热 S&P 500 榜单行情（避免用户首次打开榜单页等待全量抓取）
+    # 后台预热 S&P 500 榜单行情 + 基本面（避免用户首次打开榜单页等待全量抓取）
     try:
         import threading as _th
 
         from . import rankings as _rank
 
         _th.Thread(target=_rank.quotes, daemon=True, name="rankings-warmup").start()
+
+        def _warm_fundamentals_then_technicals() -> None:
+            """基本面与技术指标**串行**预热（不是各自一个线程）。
+
+            三者都要打 yfinance/腾讯，若同时开三路并发，很容易触发对端限流 ——
+            实测过一次 yfinance 部分超时只抓到 228/503（覆盖率闸门就是为此加的）。
+            串行后同一时刻最多两路（行情 + 这一路），显著降低超时概率。
+            技术指标最重（全量约 71s），放在最后跑。
+            """
+            syms = [c["symbol"] for c in _rank.constituents()["constituents"]]
+            # 基本面（PE/PB/股息率…）是独立 TTL 的缓存：不预热的话首次打开榜单
+            # 只有行情、估值列全是 "—"，要等 10 分钟后台刷新才有。
+            try:
+                from .fundamentals import snapshot as _f_snapshot
+
+                _f_snapshot(syms)
+            except Exception:  # noqa: BLE001
+                pass
+            # 技术指标（均线/RSI/波动率/Beta）需要 1 年日线。不预热的话用户打开榜单
+            # 会看到技术面列全是 "—"，候选观察池的分数也缺了趋势维度。
+            try:
+                from .technicals import snapshot as _t_snapshot
+
+                _t_snapshot(syms)
+            except Exception:  # noqa: BLE001
+                pass
+
+        _th.Thread(target=_warm_fundamentals_then_technicals, daemon=True,
+                   name="fundamentals-technicals-warmup").start()
+
+        # 标的池成分 7 天自动刷新（NDX100 / SP400，失败静默用内置快照）
+        try:
+            from .universe import maybe_refresh_async
+
+            maybe_refresh_async()
+        except Exception:  # noqa: BLE001
+            pass
+
+        # 开盘监控常驻任务自恢复（此前开启过才起线程）
+        try:
+            from .movers import resume_monitor
+
+            resume_monitor()
+        except Exception:  # noqa: BLE001
+            pass
     except Exception:  # noqa: BLE001
         pass
 
@@ -288,36 +336,55 @@ def health() -> dict:
 # ------------------------------------------------------------------
 # 前端静态资源（构建后单端口即可访问）
 # ------------------------------------------------------------------
-if (FRONTEND_DIST / "index.html").exists():
-    assets = FRONTEND_DIST / "assets"
-    if assets.exists():
-        app.mount("/assets", StaticFiles(directory=str(assets)), name="assets")
+# ⚠️⚠️ **绝不能在导入时按「dist/index.html 是否存在」决定要不要注册前端路由**。
+# `npm run build` 会先清空 dist/（vite 的 emptyOutDir），所以只要服务是在**构建窗口内**
+# 启动的，`index.html` 那一刻就不存在 → 回退路由永远不会注册 → 之后**所有前端路由都 404**
+# （浏览器只看到 `{"detail":"Not Found"}`），而且**重新构建也不会恢复，必须重启后端**。
+# 真实踩过：17:24 起服务、17:25 构建完成 → /intel 与 /rankings 一直 404，/ 返回一段 JSON 占位。
+# 现在改为**无条件注册**，把「产物是否就绪」推迟到**请求时**判断：
+#   · 就绪   → 正常返回 index.html（no-cache）；
+#   · 未就绪 → 返回**可操作**的中文提示（503），而不是让人摸不着头脑的 404。
+_NO_CACHE = {"Cache-Control": "no-cache, must-revalidate"}
 
-    # index.html 必须 no-cache：代码分割后 chunk 带 hash，浏览器缓存旧 html 会引用
-    # 已被归档删除的旧 chunk → 404 → 页面白屏（用户端反复「页面有问题」的根因）。
-    _NO_CACHE = {"Cache-Control": "no-cache, must-revalidate"}
+# check_dir=False：产物目录此刻可能还不存在（正在构建），不能因此让挂载本身失败
+app.mount(
+    "/assets",
+    StaticFiles(directory=str(FRONTEND_DIST / "assets"), check_dir=False),
+    name="assets",
+)
 
-    @app.get("/", include_in_schema=False)
-    def index() -> FileResponse:
-        return FileResponse(FRONTEND_DIST / "index.html", headers=_NO_CACHE)
 
-    @app.get("/{full_path:path}", include_in_schema=False)
-    def spa(full_path: str) -> FileResponse:
-        """SPA 回退：非 API 路径一律返回 index.html（同样 no-cache）。"""
-        target = (FRONTEND_DIST / full_path).resolve()
-        try:
-            target.relative_to(FRONTEND_DIST.resolve())
-        except ValueError:
-            return FileResponse(FRONTEND_DIST / "index.html", headers=_NO_CACHE)
-        if full_path and target.is_file():
-            return FileResponse(target, headers=_NO_CACHE if full_path.endswith(".html") else None)
-        return FileResponse(FRONTEND_DIST / "index.html", headers=_NO_CACHE)
-else:
+def _frontend_index() -> FileResponse | JSONResponse:
+    """返回前端入口；产物未就绪时给出可操作的 503 提示，而不是 404。"""
+    idx = FRONTEND_DIST / "index.html"
+    if not idx.exists():
+        return JSONResponse(
+            status_code=503,
+            content={
+                "detail": "前端产物未就绪（尚未构建，或正在构建中）。"
+                          "请在 frontend 目录执行 npm run build 后刷新本页 —— 无需重启后端。",
+                "api_docs": "/api/docs",
+            },
+        )
+    return FileResponse(idx, headers=_NO_CACHE)
 
-    @app.get("/", include_in_schema=False)
-    def index_placeholder() -> JSONResponse:
-        return JSONResponse({
-            "app": settings.app_name,
-            "message": "后端已运行，前端尚未构建。请在 frontend 目录执行 npm install && npm run build",
-            "api_docs": "/api/docs",
-        })
+
+# response_model=None：返回类型是 FileResponse | JSONResponse 的联合，
+# FastAPI 会尝试把它当 Pydantic 响应模型解析并直接报错，必须显式关掉。
+@app.get("/", include_in_schema=False, response_model=None)
+def index() -> FileResponse | JSONResponse:
+    return _frontend_index()
+
+
+@app.get("/{full_path:path}", include_in_schema=False, response_model=None)
+def spa(full_path: str) -> FileResponse | JSONResponse:
+    """SPA 回退：非 API 路径一律返回 index.html（同样 no-cache）。"""
+    target = (FRONTEND_DIST / full_path).resolve()
+    try:
+        target.relative_to(FRONTEND_DIST.resolve())
+    except ValueError:
+        # 路径穿越（../）→ 不泄露文件，直接回退到入口
+        return _frontend_index()
+    if full_path and target.is_file():
+        return FileResponse(target, headers=_NO_CACHE if full_path.endswith(".html") else None)
+    return _frontend_index()

@@ -1,7 +1,7 @@
 """API 路由聚合。"""
 from fastapi import APIRouter
 
-from . import ai, alerts, auth, backtest, intel, market, news, ops, optimize, rankings, risk, strategies, system, trading, watchlist, ws
+from . import ai, alerts, auth, backtest, intel, intel_digest, market, news, ops, optimize, rankings, risk, strategies, system, trading, watchlist, ws
 
 api_router = APIRouter()
 api_router.include_router(auth.router)
@@ -19,6 +19,7 @@ api_router.include_router(trading.router)
 api_router.include_router(risk.router)
 api_router.include_router(ai.router)
 api_router.include_router(intel.router)
+api_router.include_router(intel_digest.router)
 api_router.include_router(ws.router)
 
 __all__ = ["api_router"]

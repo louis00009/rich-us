@@ -102,6 +102,24 @@ def _validate_cond(c: Any, where: str) -> None:
                 raise RuleError(f"不支持的指标: {key}")
         else:
             raise RuleError(f"{side} 需包含 indicator 或 const")
+        # 铁律 2（无未来函数）：shift 只允许非负整数。
+        # 负 shift 会取到未来 bar 的值，静默产出一条「好看但虚假」的回测曲线，
+        # 且能通过 API 提交 —— 必须在入口拦下，而不是在执行期才暴露。
+        raw_shift = s.get("shift")
+        if raw_shift is not None:
+            if isinstance(raw_shift, bool):
+                raise RuleError(f"{side}.shift 必须是整数")
+            try:
+                sh_f = float(raw_shift)
+            except (TypeError, ValueError) as exc:
+                raise RuleError(f"{side}.shift 必须是整数") from exc
+            if sh_f != int(sh_f):
+                raise RuleError(f"{side}.shift 必须是整数（收到 {raw_shift!r}）")
+            if sh_f < 0:
+                raise RuleError(
+                    f"{side}.shift 不能为负数（收到 {int(sh_f)}）："
+                    "负位移会读取未来数据，构成未来函数"
+                )
 
 
 def _operand_df(spec: dict[str, Any], ctx: SignalContext, cache: dict) -> pd.DataFrame:
@@ -124,6 +142,10 @@ def _operand_df(spec: dict[str, Any], ctx: SignalContext, cache: dict) -> pd.Dat
     base = cache[ck]
     mult = spec.get("mult")
     shift = int(spec.get("shift", 0) or 0)
+    if shift < 0:
+        # 兜底：validate_rule 已在构造期拦截；此处再挡一次，防止将来重构绕过校验后
+        # 静默读取未来数据（铁律 2）。宁可大声失败，也不要产出一条虚假的回测曲线。
+        raise RuleError(f"shift 不能为负数（收到 {shift}）：负位移会读取未来数据")
     out = base * float(mult) if mult is not None else base
     if shift:
         out = out.shift(shift)

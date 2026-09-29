@@ -72,6 +72,12 @@ class BacktestRun(Base):
     start_date: Mapped[str] = mapped_column(String(12), default="")
     end_date: Mapped[str] = mapped_column(String(12), default="")
     initial_capital: Mapped[float] = mapped_column(Float, default=100_000.0)
+    # 复现字段（2026-09-29）：没有它们历史回测无法 100% 复现（基准/成本/周期/数据源）
+    benchmark: Mapped[str] = mapped_column(String(16), default="SPY")
+    commission_bps: Mapped[float] = mapped_column(Float, default=1.0)
+    slippage_bps: Mapped[float] = mapped_column(Float, default=2.0)
+    interval: Mapped[str] = mapped_column(String(8), default="1d")
+    data_source: Mapped[str] = mapped_column(String(16), default="")
     metrics_json: Mapped[str] = mapped_column(Text, default="{}")
     equity_json: Mapped[str] = mapped_column(Text, default="[]")
     trades_json: Mapped[str] = mapped_column(Text, default="[]")
@@ -311,6 +317,7 @@ class IntelCompany(Base):
     theme: Mapped[str] = mapped_column(Text, default="")     # 关注主题，如 AI 算力 / 自动驾驶 / 云
     focus: Mapped[str] = mapped_column(Text, default="")     # 关注要点提示（会注入 Agent 任务简报）
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    note: Mapped[str] = mapped_column(Text, default="")     # 建档备注（如「由 AI Agent 提交事件时自动创建」）
     last_scrape_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=_now)
 
@@ -321,6 +328,9 @@ class IntelEvent(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     symbol: Mapped[str] = mapped_column(String(32), index=True)
     occurred_on: Mapped[str] = mapped_column(String(10), default="")  # 事件发生日 YYYY-MM-DD（允许空=未知）
+    # 新闻发布时刻 "YYYY-MM-DD HH:MM"（UTC，空=未知）。occurred_on 用于排序/过滤，
+    # occurred_at 用于展示精确时间——两者不一致时以 occurred_on 为准做日级聚合。
+    occurred_at: Mapped[str] = mapped_column(String(16), default="")
     category: Mapped[str] = mapped_column(String(24), default="other", index=True)
     # model_release | product_launch | partnership | earnings | regulatory | personnel | macro | other
     title: Mapped[str] = mapped_column(Text)
@@ -360,6 +370,7 @@ class IntelAnalysis(Base):
     outcome_checked_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)  # 验证时间
     outcome_price: Mapped[float | None] = mapped_column(Float, nullable=True)  # 验证时价格
     outcome_return: Mapped[float | None] = mapped_column(Float, nullable=True)  # 窗口收益 %（验证价/分析价-1）
+    outcome_benchmark: Mapped[float | None] = mapped_column(Float, nullable=True)  # 同期基准（SPY）收益 %；超额=return-benchmark
     outcome_hit: Mapped[bool | None] = mapped_column(Boolean, nullable=True)    # 方向是否正确（hold 不验证）
     agent: Mapped[str] = mapped_column(String(48), default="", index=True)
     engine: Mapped[str] = mapped_column(String(16), default="agent")   # agent | llm | local
@@ -395,6 +406,29 @@ class IntelBridgeLog(Base):
     ok: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+class IntelDigest(Base):
+    """AI 每日必读：把当日情报按确定性重要度排序后的「必读清单」落库留痕。
+
+    设计要点（与项目「AI 只有建议权 + 不编造数据」一脉相承）：
+      · payload 里的**重要度评分与入选理由由纯规则算出**（intel_digest.score_event），
+        不依赖 LLM，因此监控每轮都能自动生成并落库 —— 这就是「AI 主动分析并记录」；
+      · LLM 深度解读是**可选附加**（llm_text / llm_engine），手动触发，缺失不影响清单可用；
+      · 按 (digest_date, scope) 唯一：同一天重复生成是 upsert，不会堆垃圾。
+    """
+    __tablename__ = "intel_digests"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    digest_date: Mapped[str] = mapped_column(String(10), index=True)   # 归集日 YYYY-MM-DD
+    scope: Mapped[str] = mapped_column(String(16), default="all", index=True)  # all | <SYMBOL>
+    payload: Mapped[str] = mapped_column(Text, default="{}")           # JSON：清单 + 统计 + 时机
+    llm_text: Mapped[str] = mapped_column(Text, default="")            # LLM 深度解读（可选）
+    llm_engine: Mapped[str] = mapped_column(String(16), default="")    # llm | local | ""
+    generated_by: Mapped[str] = mapped_column(String(32), default="scheduler")  # scheduler | manual | api
+    event_count: Mapped[int] = mapped_column(Integer, default=0)       # 纳入清单的事件数
+    top_count: Mapped[int] = mapped_column(Integer, default=0)         # 必读条数
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=_now, index=True)
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
+
+
 class IntelSetting(Base):
     """情报中心全局设置（单行，id=1）。monitor_enabled 持久化以便服务重启后自恢复。"""
     __tablename__ = "intel_settings"
@@ -402,5 +436,6 @@ class IntelSetting(Base):
     monitor_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     interval_minutes: Mapped[int] = mapped_column(Integer, default=30)
     auto_analyze: Mapped[bool] = mapped_column(Boolean, default=True)
+    ai_scrape: Mapped[bool] = mapped_column(Boolean, default=True)   # 内置 AI 自动抓取（新闻→事件）
     bridge_token: Mapped[str] = mapped_column(String(64), default="")
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=_now, onupdate=_now)

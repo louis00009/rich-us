@@ -95,9 +95,18 @@ class IBKRDataProvider:
 
 
 def register_data_providers() -> None:
-    from ..data_provider import register_history_provider
+    from ..data_provider import (
+        register_history_provider,
+        register_local_provider,
+        register_twelvedata_provider,
+    )
 
     register_history_provider("ibkr", IBKRDataProvider())
+    # TwelveData（多 Key 轮询池）也进注册表：这样它会出现在
+    # 「设置 → 数据与缓存 → 源健康状态」里，并能被选为优先数据源。
+    register_twelvedata_provider()
+    # 本地历史库（IBKR 灌库产物）—— 非空才注册
+    register_local_provider()
 
 
 register_data_providers()

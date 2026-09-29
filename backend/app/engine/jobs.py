@@ -78,7 +78,7 @@ def start(kind: str, fn: Callable[[ProgressCb, threading.Event], Any]) -> str:
     job_id = uuid.uuid4().hex[:12]
     job: dict[str, Any] = {
         "id": job_id, "kind": kind, "status": "running",
-        "progress": 0, "total": 0, "started": time.time(),
+        "progress": 0, "total": 0, "note": "", "started": time.time(),
         "finished": None, "result": None, "error": "",
         "cancel": threading.Event(),
     }
@@ -86,11 +86,15 @@ def start(kind: str, fn: Callable[[ProgressCb, threading.Event], Any]) -> str:
         _gc_locked()
         _jobs[job_id] = job
 
-    def progress(done: int, total: int) -> None:
-        # P1-7：与 get() 同锁，避免读写撕裂
+    def progress(done: int, total: int, note: str = "") -> None:
+        # P1-7：与 get() 同锁，避免读写撕裂。
+        # note（可选第三参）向后兼容：既有调用方只传 (done, total) 不受影响；
+        # 传了则展示当前步骤说明（如「正在抓取 NVDA…」），截断防异常长文本。
         with _lock:
             job["progress"] = int(done)
             job["total"] = int(total)
+            if note:
+                job["note"] = str(note)[:120]
 
     def runner() -> None:
         try:
@@ -127,7 +131,7 @@ def get(job_id: str) -> dict[str, Any] | None:
             return None
         return {
             "id": job["id"], "kind": job["kind"], "status": job["status"],
-            "progress": job["progress"], "total": job["total"],
+            "progress": job["progress"], "total": job["total"], "note": job.get("note", ""),
             "elapsed_sec": round((job["finished"] or time.time()) - job["started"], 1),
             "result": job["result"], "error": job["error"],
         }
