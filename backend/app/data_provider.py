@@ -27,6 +27,7 @@ import numpy as np
 import pandas as pd
 
 from .config import CACHE_DIR, settings
+from . import hist_store
 
 OHLCV = ["open", "high", "low", "close", "volume"]
 
@@ -35,6 +36,12 @@ _TTL = {"1d": 6 * 3600, "1wk": 12 * 3600, "1h": 1800, "30m": 900, "15m": 600, "5
 _COVER_TOL = {"1d": 7, "1wk": 14, "1h": 3, "30m": 2, "15m": 1, "5m": 1, "1m": 1}
 # 单标的缓存上限行数（防止长期运行后 CSV 无限膨胀）
 _CACHE_MAX_ROWS = {"1d": 6000, "1wk": 1500, "1h": 8000, "30m": 8000, "15m": 8000, "5m": 8000, "1m": 2000}
+
+# 本项目周期 → TwelveData interval 参数（命名不同：1d→1day、1wk→1week、30m→30min）
+_TD_INTERVAL = {
+    "1d": "1day", "1wk": "1week", "1h": "1h",
+    "30m": "30min", "15m": "15min", "5m": "5min", "1m": "1min",
+}
 
 
 # ------------------------------------------------------------------
@@ -363,6 +370,8 @@ def _write_cache(symbol: str, interval: str, df: pd.DataFrame) -> None:
                         tmp.unlink()
                     except OSError:
                         pass
+                    except BaseException:  # noqa: BLE001 —— safe-delete 护栏抛 SystemExit，清理失败不外溢
+                        pass
     except Exception:
         pass
 
@@ -628,6 +637,78 @@ def _from_finnhub(symbol: str, start: str, end: str | None, interval: str) -> pd
         return pd.DataFrame(columns=OHLCV)
 
 
+def _from_twelvedata(symbol: str, start: str, end: str | None, interval: str) -> pd.DataFrame:
+    """TwelveData 行情（走多 Key 轮询池，见 `app/twelvedata.py`）。
+
+    免费档实测 **8 credits/分钟、800/天**，单账号喂不饱全量标的 —— 故本函数
+    **不直接持有密钥**，一律通过 `twelvedata.api_get` 取池中当前可用的 Key。
+    池内全部 Key 都超限/冷却时 `acquire()` 返回 None → 这里返回空 →
+    降级链继续往下走。**限流器即安全阀**，不会把额度打爆、也不会抛 429 雪崩。
+
+    ⚠️ TwelveData 的 `values` 是**倒序**（最新在前），必须 reverse，
+    否则 K 线时间轴会整体反过来（回测会读到未来数据）。
+
+    ⚠️ **时区是这里最容易错的地方**：TwelveData 的 `datetime` 是**无时区的交易所墙钟**
+    （日线就是 "2026-09-25"）。若直接交给 `_normalize`（默认把 naive 当 UTC 再转 NY），
+    日线会整体退到**前一天 20:00** —— 日期都错了，回测会系统性偏移一天。
+    所以这里先显式 `tz_localize("America/New_York")` 变成 aware。
+
+    返回值**故意不做 `_normalize`**：降级链的 `v_td` 与 provider 路径的 `fetch_history`
+    各会归一化，且两条路**互斥**（同一次请求只会走其中一条），所以恰好一次。
+    ⚠️ `_normalize` 对 naive 输入**不是幂等**的（每多跑一次就再退 4 小时），
+    因此「归一化几次」必须是确定的 —— 不要在这里、或在调用方重复加。
+    """
+    if _market_of(symbol) != "US":
+        return pd.DataFrame(columns=OHLCV)
+    td_interval = _TD_INTERVAL.get(interval)
+    if not td_interval:
+        return pd.DataFrame(columns=OHLCV)
+    from . import twelvedata as _td
+
+    if not _td.pool().has_key():
+        return pd.DataFrame(columns=OHLCV)
+
+    # 日线/周线用 outputsize 拿长历史；日内给 start_date/end_date（免费档日内回溯有限）
+    params: dict[str, Any] = {"symbol": symbol, "interval": td_interval}
+    if interval in ("1d", "1wk"):
+        params["outputsize"] = 5000
+    else:
+        params["start_date"] = start
+        if end:
+            params["end_date"] = end
+        params["outputsize"] = 5000
+
+    res = _td.api_get("/time_series", params)
+    if not res.get("ok"):
+        return pd.DataFrame(columns=OHLCV)
+    data = res.get("data") or {}
+    values = data.get("values") if isinstance(data, dict) else None
+    if not values:
+        return pd.DataFrame(columns=OHLCV)
+    df = pd.DataFrame(values)
+    if "datetime" not in df.columns:
+        return pd.DataFrame(columns=OHLCV)
+    df = df.rename(columns={"datetime": "date"})
+    for c in OHLCV:
+        if c not in df.columns:
+            df[c] = 0.0 if c == "volume" else np.nan
+    df = df[["date", *OHLCV]]
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["date"]).set_index("date")
+    df = df.iloc[::-1]                      # 倒序 → 正序（见 docstring 的警告）
+    try:
+        df.index = df.index.tz_localize("America/New_York")   # naive 墙钟 → aware（关键）
+    except (TypeError, AttributeError):
+        pass                                # 已经是 aware 就原样保留
+    df = df[~df.index.duplicated(keep="last")].sort_index()
+
+    # 尊重请求区间：日线/周线用 `outputsize=5000` 会返回**远超 start** 的长历史，
+    # 且 TwelveData 在该分支下**不认 end** —— 若不裁剪，指定 end 的回测会读到
+    # end 之后的 K 线，等于未来函数（铁律）。裁剪逻辑放在 twelvedata.clip_range（纯函数，可自检）。
+    df = _td.clip_range(df, start, end, interval)
+    return df[OHLCV].apply(pd.to_numeric, errors="coerce")
+
+
 def _synthetic(symbol: str, start: str, end: str | None, interval: str) -> pd.DataFrame:
     """确定性合成行情：同一 symbol 永远生成同一序列，便于离线自检与演示。"""
     seed = int(hashlib.sha256(symbol.encode()).hexdigest()[:8], 16)
@@ -675,6 +756,33 @@ _preferred: str | None = None
 
 def register_history_provider(name: str, provider: Any) -> None:
     _history_providers[name] = provider
+
+
+class _LocalHistProvider:
+    """把本地历史库（IBKR 灌库产物）适配成 provider，使其出现在源健康状态里。
+
+    ⚠️ 注意：本地库在 `fetch_history` 中是**第 0 优先**（在 IBKR 之前），
+    不走 provider 链；这里注册只是为了 `provider_status()` 能展示覆盖率，
+    以及让用户能在设置页看到它。**真正的读取逻辑在 fetch_history 里**。
+    """
+
+    name = "local"
+
+    def history(self, symbol, start=None, end=None, interval="1d"):
+        return hist_store.history(symbol, start, end, interval)
+
+    def status(self) -> dict:
+        try:
+            cov = hist_store.coverage()
+            return {
+                "name": "local",
+                "available": bool(cov.get("available")),
+                "symbols": cov.get("symbols", 0),
+                "dir": cov.get("dir", ""),
+                "note": "IBKR 灌库产物；命中时零网络、零限流",
+            }
+        except Exception as exc:  # noqa: BLE001
+            return {"name": "local", "available": False, "error": str(exc)[:120]}
 
 
 def available_providers() -> list[str]:
@@ -837,6 +945,18 @@ def fetch_history(
     ttl = _TTL.get(interval, 3600)
     pref = prefer if prefer is not None else _preferred
 
+    # 0) 本地历史库（IBKR 灌库产物）—— 零网络、零限流，永远第一优先。
+    #    只有覆盖请求区间才命中（hist_store 内部保证「宁缺毋滥」：
+    #    区间超出本地覆盖时返回 None，避免用部分数据冒充完整历史）。
+    #    用 prefer 显式指定其它源时跳过本地库，尊重用户选择。
+    if use_cache and not pref:
+        try:
+            local = hist_store.history(symbol, start, end, interval)
+            if local is not None and len(local) > 20:
+                return local, "local"
+        except Exception as exc:  # noqa: BLE001 —— 本地库异常不得阻断取数
+            _last_errors["local"] = f"{type(exc).__name__}: {exc}"[:160]
+
     # 1) 券商数据源（IBKR）：显式 prefer 或 auto 且已连接时自动作为第一优先
     #    （分钟级可回溯数年，远强于免费源 60 天；未连接时 _broker() 快速返回 None，零开销落回下链）
     auto_ibkr = pref is None and "ibkr" in _history_providers
@@ -921,7 +1041,11 @@ def fetch_history(
         )
     else:
         chain = (
-            ("yfinance", v_yf), ("stooq", v_st), ("finnhub", v_fh),
+            ("yfinance", v_yf), ("stooq", v_st),
+            # TwelveData 走多 Key 轮询池，额度有限（免费档 8/min/Key）——
+            # 刻意放在 stooq 之后当「最后一道真实数据源」：限流器本身就是安全阀，
+            # 额度耗尽时返回空 → 继续下探到 finnhub，不会 429 雪崩、也不会阻塞。
+            ("twelvedata", v_td), ("finnhub", v_fh),
         )
     flight_key = f"{symbol}|{interval}"
     with _locks_guard:
@@ -1001,6 +1125,62 @@ def v_tencent_hk_m1(symbol: str, start: str, end: str | None, interval: str) -> 
 
 def v_fh(symbol: str, start: str, end: str | None, interval: str) -> pd.DataFrame:
     return _from_finnhub(symbol, start, end, interval)
+
+
+def v_td(symbol: str, start: str, end: str | None, interval: str) -> pd.DataFrame:
+    # `_from_twelvedata` 返回 aware（纽约）帧、**故意不做**归一化（见其 docstring）——
+    # 降级链的契约是「已归一化」，所以在这里补上这**唯一一次**。
+    return _normalize(_from_twelvedata(symbol, start, end, interval))
+
+
+class TwelveDataProvider:
+    """适配器：把 TwelveData 多 Key 轮询池接进数据源注册表。
+
+    注册后才能出现在「设置 → 数据与缓存 → 源健康状态」里，并可被选为优先数据源。
+    `history()` 返回 **aware（纽约）** 帧，由 `fetch_history` 里的 `_normalize`
+    做那**唯一一次**归一化（若这里先归一化成 naive，会被再当 UTC 转一次 →
+    日线整体退一天）。
+    """
+
+    name = "twelvedata"
+
+    def history(self, symbol: str, start: str | None, end: str | None, interval: str):
+        try:
+            df = _from_twelvedata(symbol, start or "2019-01-01", end, interval)
+            return df if df is not None and len(df) > 20 else None
+        except Exception:  # noqa: BLE001
+            return None
+
+    def status(self) -> dict:
+        from . import twelvedata as _td
+
+        st = _td.pool().status()
+        if st["enabled"] == 0:
+            return {
+                "name": "twelvedata",
+                "available": False,
+                "reason": "未配置密钥（在「数据与缓存」里添加 TwelveData Key）",
+            }
+        return {
+            "name": "twelvedata",
+            "available": st["available_now"] > 0,
+            "reason": (
+                f"{st['enabled']} 个密钥，当前可用 {st['available_now']} 个；"
+                f"合计额度 {st['effective_per_min']}/min、{st['effective_per_day']}/day"
+            ),
+            **{k: st[k] for k in ("count", "enabled", "available_now",
+                                  "effective_per_min", "effective_per_day")},
+        }
+
+
+def register_twelvedata_provider() -> None:
+    register_history_provider("twelvedata", TwelveDataProvider())
+
+
+def register_local_provider() -> None:
+    """注册本地历史库（IBKR 灌库产物）—— 仅在库非空时注册，避免设置页出现空条目。"""
+    if hist_store.available():
+        register_history_provider("local", _LocalHistProvider())
 
 
 def fetch_many(
@@ -1119,6 +1299,8 @@ def clear_cache() -> int:
             p.unlink()
             n += 1
         except OSError:
+            pass
+        except BaseException:  # noqa: BLE001 —— safe-delete 护栏抛 SystemExit，清理失败不外溢
             pass
     return n
 

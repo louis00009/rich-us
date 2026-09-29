@@ -126,6 +126,9 @@ class Settings:
 
     # 新闻与数据源扩展
     finnhub_api_key: str = os.environ.get("FINNHUB_API_KEY", "")
+    # TwelveData 主密钥（可选）：仅用于**首次播种**多 Key 轮询池；
+    # 之后以「设置 → 数据与缓存」里的增删为准（见 app/twelvedata.py）。
+    twelvedata_api_key: str = os.environ.get("TWELVEDATA_API_KEY", "")
     news_ttl_sec: int = int(os.environ.get("QD_NEWS_TTL", "300"))          # 新闻抓取间隔
     news_scan_symbols: int = int(os.environ.get("QD_NEWS_SCAN_SYMBOLS", "12"))  # 单轮扫描标的上限
     rankings_ttl_sec: int = int(os.environ.get("QD_RANKINGS_TTL", "600"))  # 榜单行情缓存

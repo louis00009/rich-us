@@ -1,0 +1,4207 @@
+{
+ "updated": "2026-09-29",
+ "source": "nasdaq screener top by market cap",
+ "count": 700,
+ "constituents": [
+  {
+   "symbol": "SKHY",
+   "name": "SK hynix Inc. American Depositary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Semiconductors"
+  },
+  {
+   "symbol": "GOOGM",
+   "name": "Alphabet Inc. Depositary Shares representing a 1/20th Interest in a Share of Series A Mandatory Convertible Preferred Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Programming Data Processing"
+  },
+  {
+   "symbol": "GOOGN",
+   "name": "Alphabet Inc. Depositary Shares representing a 1/20th Interest in a Share of Series B Mandatory Convertible Preferred Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Programming Data Processing"
+  },
+  {
+   "symbol": "HSBC",
+   "name": "HSBC Holdings plc. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Savings Institutions"
+  },
+  {
+   "symbol": "NVS",
+   "name": "Novartis AG Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "RY",
+   "name": "Royal Bank Of Canada Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "MUFG",
+   "name": "Mitsubishi UFJ Financial Group Inc. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "SHEL",
+   "name": "Shell PLC American Depositary Shares (each representing two (2) Ordinary Shares)",
+   "sector": "Energy",
+   "sub_sector": "Oil & Gas Production"
+  },
+  {
+   "symbol": "AZN",
+   "name": "AstraZeneca PLC Ordinary Shares",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "SAP",
+   "name": "SAP  SE ADS",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "TM",
+   "name": "Toyota Motor Corporation Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Auto Manufacturing"
+  },
+  {
+   "symbol": "CCZ",
+   "name": "Comcast Holdings ZONES",
+   "sector": "Communication Services",
+   "sub_sector": "Cable & Other Pay Television Services"
+  },
+  {
+   "symbol": "BHP",
+   "name": "BHP Group Limited American Depositary Shares (Each representing two Ordinary Shares)",
+   "sector": "Energy",
+   "sub_sector": "Coal Mining"
+  },
+  {
+   "symbol": "SAN",
+   "name": "Banco Santander S.A. Sponsored ADR (Spain)",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "TTE",
+   "name": "TotalEnergies SE Ordinary Shares",
+   "sector": "Energy",
+   "sub_sector": "Oil & Gas Production"
+  },
+  {
+   "symbol": "TD",
+   "name": "Toronto Dominion Bank (The) Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "NVO",
+   "name": "Novo Nordisk A/S Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "SCCO",
+   "name": "Southern Copper Corporation Common Stock",
+   "sector": "Materials",
+   "sub_sector": "Metal Mining"
+  },
+  {
+   "symbol": "BBVA",
+   "name": "Banco Bilbao Vizcaya Argentaria S.A. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "BUD",
+   "name": "Anheuser-Busch Inbev SA Sponsored ADR (Belgium)",
+   "sector": "Consumer Staples",
+   "sub_sector": "Beverages (Production/Distribution)"
+  },
+  {
+   "symbol": "UBS",
+   "name": "UBS Group AG Registered Ordinary Shares",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "MFG",
+   "name": "Mizuho Financial Group Inc. Sponosred ADR (Japan)",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "SONY",
+   "name": "Sony Group Corporation American Depositary Shares",
+   "sector": "Consumer Staples",
+   "sub_sector": "Consumer Electronics/Appliances"
+  },
+  {
+   "symbol": "TBB",
+   "name": "AT&T Inc. 5.350% Global Notes due 2066",
+   "sector": "Communication Services",
+   "sub_sector": "Telecommunications Equipment"
+  },
+  {
+   "symbol": "UL",
+   "name": "Unilever PLC American Depositary Shares (each representing One Ordinary Share)",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Package Goods/Cosmetics"
+  },
+  {
+   "symbol": "PBR",
+   "name": "Petroleo Brasileiro S.A. Petrobras ADS",
+   "sector": "Energy",
+   "sub_sector": "Oil & Gas Production"
+  },
+  {
+   "symbol": "BTI",
+   "name": "British American Tobacco  Industries p.l.c. Common Stock ADR",
+   "sector": "Health Care",
+   "sub_sector": "Medicinal Chemicals and Botanical Products"
+  },
+  {
+   "symbol": "SMFG",
+   "name": "Sumitomo Mitsui Financial Group Inc Unsponsored American Depositary Shares (Japan)",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "BMO",
+   "name": "Bank Of Montreal Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "RIO",
+   "name": "Rio Tinto Plc Common Stock",
+   "sector": "Materials",
+   "sub_sector": "Metal Mining"
+  },
+  {
+   "symbol": "BP",
+   "name": "BP p.l.c. Common Stock",
+   "sector": "Energy",
+   "sub_sector": "Integrated oil Companies"
+  },
+  {
+   "symbol": "HDB",
+   "name": "HDFC Bank Limited Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "BNS",
+   "name": "Bank Nova Scotia Halifax Pfd 3 Ordinary Shares",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "EQNR",
+   "name": "Equinor ASA",
+   "sector": "Energy",
+   "sub_sector": "Integrated oil Companies"
+  },
+  {
+   "symbol": "ING",
+   "name": "ING Group N.V. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "ENB",
+   "name": "Enbridge Inc Common Stock",
+   "sector": "Energy",
+   "sub_sector": "Natural Gas Distribution"
+  },
+  {
+   "symbol": "SPOT",
+   "name": "Spotify Technology S.A. Ordinary Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Broadcasting"
+  },
+  {
+   "symbol": "CM",
+   "name": "Canadian Imperial Bank of Commerce Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "GSK",
+   "name": "GSK plc American Depositary Shares (Each representing two Ordinary Shares)",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "SNY",
+   "name": "Sanofi ADS",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "CNQ",
+   "name": "Canadian Natural Resources Limited Common Stock",
+   "sector": "Energy",
+   "sub_sector": "Oil & Gas Production"
+  },
+  {
+   "symbol": "IBN",
+   "name": "ICICI Bank Limited Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "ASX",
+   "name": "ASE Technology Holding Co. Ltd. American Depositary Shares (each representing Two Common Shares)",
+   "sector": "Information Technology",
+   "sub_sector": "Semiconductors"
+  },
+  {
+   "symbol": "AEM",
+   "name": "Agnico Eagle Mines Limited Common Stock",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "RACE",
+   "name": "Ferrari N.V. Common Shares",
+   "sector": "Industrials",
+   "sub_sector": "Auto Manufacturing"
+  },
+  {
+   "symbol": "BN",
+   "name": "Brookfield Corporation Class A Limited Voting Shares",
+   "sector": "Real Estate",
+   "sub_sector": "Building operators"
+  },
+  {
+   "symbol": "ITUB",
+   "name": "Itau Unibanco Banco Holding SA American Depositary Shares (Each repstg 500 Preferred shares)",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "E",
+   "name": "ENI S.p.A. Common Stock",
+   "sector": "Energy",
+   "sub_sector": "Oil & Gas Production"
+  },
+  {
+   "symbol": "LYG",
+   "name": "Lloyds Banking Group Plc American Depositary Shares",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "BCS",
+   "name": "Barclays PLC Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "SU",
+   "name": "Suncor Energy  Inc. Common Stock",
+   "sector": "Energy",
+   "sub_sector": "Integrated oil Companies"
+  },
+  {
+   "symbol": "EPD",
+   "name": "Enterprise Products Partners L.P. Common Stock",
+   "sector": "Utilities",
+   "sub_sector": "Natural Gas Distribution"
+  },
+  {
+   "symbol": "NGG",
+   "name": "National Grid Transco PLC National Grid PLC (NEW) American Depositary Shares",
+   "sector": "Utilities",
+   "sub_sector": "Natural Gas Distribution"
+  },
+  {
+   "symbol": "CP",
+   "name": "Canadian Pacific Kansas City Limited Common Shares",
+   "sector": "Industrials",
+   "sub_sector": "Railroads"
+  },
+  {
+   "symbol": "CNI",
+   "name": "Canadian National Railway Company Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Railroads"
+  },
+  {
+   "symbol": "NWG",
+   "name": "NatWest Group plc American Depositary Shares (each representing two (2) Ordinary Shares)",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "MFC",
+   "name": "Manulife Financial Corporation Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Life Insurance"
+  },
+  {
+   "symbol": "BRKRP",
+   "name": "Bruker Corporation 6.375% Mandatory Convertible Preferred Stock Series A",
+   "sector": "Industrials",
+   "sub_sector": "Biotechnology: Laboratory Analytical Instruments"
+  },
+  {
+   "symbol": "BAM",
+   "name": "Brookfield Asset Management Inc Class A Limited Voting Shares",
+   "sector": "Real Estate",
+   "sub_sector": "Building operators"
+  },
+  {
+   "symbol": "ET",
+   "name": "Energy Transfer LP Common Units",
+   "sector": "Utilities",
+   "sub_sector": "Natural Gas Distribution"
+  },
+  {
+   "symbol": "DB",
+   "name": "Deutsche Bank AG Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "B",
+   "name": "Barrick Mining Corporation Common Shares",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "AMX",
+   "name": "America Movil S.A.B. de C.V. American Depositary Shares (each representing the right to receive twenty (20) Series B Shares",
+   "sector": "Communication Services",
+   "sub_sector": "Telecommunications Equipment"
+  },
+  {
+   "symbol": "WPM",
+   "name": "Wheaton Precious Metals Corp Common Shares (Canada)",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "ARGX",
+   "name": "argenx SE American Depositary Shares",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Biological Products (No Diagnostic Substances)"
+  },
+  {
+   "symbol": "UMC",
+   "name": "United Microelectronics Corporation (NEW) Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Semiconductors"
+  },
+  {
+   "symbol": "BMNP",
+   "name": "BitMine Immersion Technologies Inc. 9.5% Series A Perpetual Preferred Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "TAK",
+   "name": "Takeda Pharmaceutical Company Limited American Depositary Shares (each representing 1/2 of a share of Common Stock)",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "NU",
+   "name": "Nu Holdings Ltd. Class A Ordinary Shares",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "NTRA",
+   "name": "Natera Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Medical Specialities"
+  },
+  {
+   "symbol": "IMO",
+   "name": "Imperial Oil Limited Common Stock",
+   "sector": "Energy",
+   "sub_sector": "Integrated oil Companies"
+  },
+  {
+   "symbol": "TRP",
+   "name": "TC Energy Corporation Common Stock",
+   "sector": "Utilities",
+   "sub_sector": "Natural Gas Distribution"
+  },
+  {
+   "symbol": "MPLX",
+   "name": "MPLX LP Common Units Representing Limited Partner Interests",
+   "sector": "Energy",
+   "sub_sector": "Natural Gas Distribution"
+  },
+  {
+   "symbol": "CVE",
+   "name": "Cenovus Energy Inc Common Stock",
+   "sector": "Energy",
+   "sub_sector": "Oil & Gas Production"
+  },
+  {
+   "symbol": "NOK",
+   "name": "Nokia Corporation Sponsored American Depositary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Radio And Television Broadcasting And Communications Equipment"
+  },
+  {
+   "symbol": "VALE",
+   "name": "VALE S.A.  American Depositary Shares Each Representing one common share",
+   "sector": "Materials",
+   "sub_sector": "Metal Mining"
+  },
+  {
+   "symbol": "RELX",
+   "name": "RELX PLC PLC American Depositary Shares (Each representing One Ordinary Share)",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Business Services"
+  },
+  {
+   "symbol": "LNG",
+   "name": "Cheniere Energy Inc. Common Stock",
+   "sector": "Utilities",
+   "sub_sector": "Oil/Gas Transmission"
+  },
+  {
+   "symbol": "MT",
+   "name": "Arcelor Mittal NY Registry Shares NEW",
+   "sector": "Industrials",
+   "sub_sector": "Steel/Iron Ore"
+  },
+  {
+   "symbol": "SOMN",
+   "name": "Southern Company (The) 2025 Series A Corporate Units",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "HBANL",
+   "name": "Huntington Bancshares Incorporated Depositary Shares Each Representing a 1/40th Interest in a Share of 6.875% Series J Non-Cumulative Perpetual Preferred Stock",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "DEO",
+   "name": "Diageo plc Common Stock",
+   "sector": "Consumer Staples",
+   "sub_sector": "Beverages (Production/Distribution)"
+  },
+  {
+   "symbol": "FNV",
+   "name": "Franco-Nevada Corporation",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "STM",
+   "name": "STMicroelectronics N.V. Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Semiconductors"
+  },
+  {
+   "symbol": "AU",
+   "name": "AngloGold Ashanti PLC Ordinary Shares",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "CBRS",
+   "name": "Cerebras Systems Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Semiconductors"
+  },
+  {
+   "symbol": "MDLN",
+   "name": "Medline Inc. Class A Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Medical/Dental Instruments"
+  },
+  {
+   "symbol": "SMCIP",
+   "name": "Super Micro Computer Inc. Depositary Shares representing a 1/20th Interest in a Share of 7% Series A Mandatory Convertible Preferred Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Manufacturing"
+  },
+  {
+   "symbol": "KB",
+   "name": "KB Financial Group Inc",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "TEVA",
+   "name": "Teva Pharmaceutical Industries Limited Ordinary Shares",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "ABEV",
+   "name": "Ambev S.A. American Depositary Shares (Each representing 1 Common Share)",
+   "sector": "Consumer Staples",
+   "sub_sector": "Beverages (Production/Distribution)"
+  },
+  {
+   "symbol": "TEAM",
+   "name": "Atlassian Corporation Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "SLF",
+   "name": "Sun Life Financial Inc. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Life Insurance"
+  },
+  {
+   "symbol": "IX",
+   "name": "ORIX Corporation American Depositary Shares",
+   "sector": "Financials",
+   "sub_sector": "Diversified Financial Services"
+  },
+  {
+   "symbol": "STRF",
+   "name": "Strategy Inc 10.00% Series A Perpetual Strife Preferred Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "RVMD",
+   "name": "Revolution Medicines Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Biological Products (No Diagnostic Substances)"
+  },
+  {
+   "symbol": "INFY",
+   "name": "Infosys Limited American Depositary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "EDP Services"
+  },
+  {
+   "symbol": "BSBR",
+   "name": "Banco Santander Brasil SA American Depositary Shares each representing one unit",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "HEI",
+   "name": "Heico Corporation Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Aerospace"
+  },
+  {
+   "symbol": "HMC",
+   "name": "Honda Motor Company Ltd. Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Auto Manufacturing"
+  },
+  {
+   "symbol": "WDS",
+   "name": "Woodside Energy Group Limited American Depositary Shares each representing one Ordinary Share",
+   "sector": "Energy",
+   "sub_sector": "Oil & Gas Production"
+  },
+  {
+   "symbol": "ONC",
+   "name": "BeOne Medicines Ltd. American Depositary Shares",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "STRC",
+   "name": "Strategy Inc Variable Rate Series A Perpetual Stretch Preferred Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "CLS",
+   "name": "Celestica Inc. Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Electrical Products"
+  },
+  {
+   "symbol": "FMX",
+   "name": "Fomento Economico Mexicano S.A.B. de C.V. Common Stock",
+   "sector": "Consumer Staples",
+   "sub_sector": "Beverages (Production/Distribution)"
+  },
+  {
+   "symbol": "HBANM",
+   "name": "Huntington Bancshares Incorporated Depositary Shares each representing a 1/1000th interest in a share of Huntington Series I Preferred Stock",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "HLN",
+   "name": "Haleon plc American Depositary Shares (Each representing two Ordinary Shares)",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Package Goods/Cosmetics"
+  },
+  {
+   "symbol": "WCN",
+   "name": "Waste Connections Inc. Common Shares",
+   "sector": "Utilities",
+   "sub_sector": "Environmental Services"
+  },
+  {
+   "symbol": "SHG",
+   "name": "Shinhan Financial Group Co Ltd American Depositary Shares",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "VOD",
+   "name": "Vodafone Group Plc American Depositary Shares",
+   "sector": "Communication Services",
+   "sub_sector": "Telecommunications Equipment"
+  },
+  {
+   "symbol": "HBANZ",
+   "name": "Huntington Bancshares Incorporated Depositary Shares Each Representing a 1/1000th Interest in a Share of 5.50% Series L Non-Cumulative Perpetual Preferred Stock",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "CCJ",
+   "name": "Cameco Corporation Common Stock",
+   "sector": "Materials",
+   "sub_sector": "Other Metals and Minerals"
+  },
+  {
+   "symbol": "BBD",
+   "name": "Banco Bradesco Sa American Depositary Shares",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "BTSGU",
+   "name": "BrightSpring Health Services Inc. Tangible Equity Unit",
+   "sector": "Health Care",
+   "sub_sector": "Medical/Nursing Services"
+  },
+  {
+   "symbol": "BAP",
+   "name": "Credicorp Ltd. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "MCHPP",
+   "name": "Microchip Technology Incorporated Depositary Shares Each Representing a 1/20th Interest in a Share of 7.50% Series A Mandatory Convertible Preferred Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Semiconductors"
+  },
+  {
+   "symbol": "CRDO",
+   "name": "Credo Technology Group Holding Ltd Ordinary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Semiconductors"
+  },
+  {
+   "symbol": "CHT",
+   "name": "Chunghwa Telecom Co. Ltd.",
+   "sector": "Communication Services",
+   "sub_sector": "Telecommunications Equipment"
+  },
+  {
+   "symbol": "VIK",
+   "name": "Viking Holdings Ltd Ordinary Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Marine Transportation"
+  },
+  {
+   "symbol": "NTR",
+   "name": "Nutrien Ltd. Common Shares",
+   "sector": "Industrials",
+   "sub_sector": "Agricultural Chemicals"
+  },
+  {
+   "symbol": "EC",
+   "name": "Ecopetrol S.A. American Depositary Shares",
+   "sector": "Energy",
+   "sub_sector": "Oil & Gas Production"
+  },
+  {
+   "symbol": "BBDO",
+   "name": "Banco Bradesco Sa American Depositary Shares (each representing one Common Share)",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "RPRX",
+   "name": "Royalty Pharma plc Class A Ordinary Shares",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "UI",
+   "name": "Ubiquiti Inc. Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Radio And Television Broadcasting And Communications Equipment"
+  },
+  {
+   "symbol": "PPLC",
+   "name": "PPL Corporation Corporate Units",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "RKT",
+   "name": "Rocket Companies Inc. Class A Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "ESLT",
+   "name": "Elbit Systems Ltd. Ordinary Shares",
+   "sector": "Industrials",
+   "sub_sector": "Military/Government/Technical"
+  },
+  {
+   "symbol": "ALC",
+   "name": "Alcon Inc. Ordinary Shares",
+   "sector": "Health Care",
+   "sub_sector": "Ophthalmic Goods"
+  },
+  {
+   "symbol": "ZS",
+   "name": "Zscaler Inc. Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "EDP Services"
+  },
+  {
+   "symbol": "QSR",
+   "name": "Restaurant Brands International Inc. Common Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Restaurants"
+  },
+  {
+   "symbol": "VG",
+   "name": "Venture Global Inc. Class A common stock",
+   "sector": "Utilities",
+   "sub_sector": "Oil/Gas Transmission"
+  },
+  {
+   "symbol": "TECK",
+   "name": "Teck Resources Ltd Ordinary Shares",
+   "sector": "Industrials",
+   "sub_sector": "Mining & Quarrying of Nonmetallic Minerals (No Fuels)"
+  },
+  {
+   "symbol": "HBANP",
+   "name": "Huntington Bancshares Incorporated Depositary Shares 4.500% Series H Non-Cumulative Perpetual Preferred Stock",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "ERIC",
+   "name": "Ericsson American Depositary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Radio And Television Broadcasting And Communications Equipment"
+  },
+  {
+   "symbol": "STRK",
+   "name": "Strategy Inc 8.00% Series A Perpetual Strike Preferred Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "PUK",
+   "name": "Prudential Public Limited Company Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Life Insurance"
+  },
+  {
+   "symbol": "GFI",
+   "name": "Gold Fields Limited American Depositary Shares",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "SUNB",
+   "name": "Sunbelt Rentals Holdings Inc. Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Diversified Commercial Services"
+  },
+  {
+   "symbol": "STRD",
+   "name": "Strategy Inc 10.00% Series A Perpetual Stride Preferred Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "AGNCN",
+   "name": "AGNC Investment Corp. Depositary Shares Each Representing a 1/1000th Interest in a Share of 7.00% Series C Fixed-To-Floating Rate Cumulative Redeemable Preferred Stock",
+   "sector": "Real Estate",
+   "sub_sector": "Real Estate Investment Trusts"
+  },
+  {
+   "symbol": "CQP",
+   "name": "Cheniere Energy Partners LP Common Units",
+   "sector": "Utilities",
+   "sub_sector": "Oil/Gas Transmission"
+  },
+  {
+   "symbol": "AGNCO",
+   "name": "AGNC Investment Corp. Depositary Shares each representing a 1/1000th interest in a share of 6.50% Series E Fixed-to-Floating Cumulative Redeemable Preferred Stock",
+   "sector": "Real Estate",
+   "sub_sector": "Real Estate Investment Trusts"
+  },
+  {
+   "symbol": "AGNCL",
+   "name": "AGNC Investment Corp. Depositary Shares Each Representing a 1/1000th Interest in a Share of 7.75% Series G Fixed-Rate Reset Cumulative Redeemable Preferred Stock",
+   "sector": "Real Estate",
+   "sub_sector": "Real Estate Investment Trusts"
+  },
+  {
+   "symbol": "AGNCP",
+   "name": "AGNC Investment Corp. Depositary Shares Each Representing a 1/1000th Interest in a Share of 6.125% Series F Fixed-to-Floating Rate Cumulative Redeemable Preferred Stock",
+   "sector": "Real Estate",
+   "sub_sector": "Real Estate Investment Trusts"
+  },
+  {
+   "symbol": "AGNCM",
+   "name": "AGNC Investment Corp. Depositary Shares rep 6.875% Series D Fixed-to-Floating Cumulative Redeemable Preferred Stock",
+   "sector": "Real Estate",
+   "sub_sector": "Real Estate Investment Trusts"
+  },
+  {
+   "symbol": "TS",
+   "name": "Tenaris S.A. American Depositary Shares",
+   "sector": "Industrials",
+   "sub_sector": "Steel/Iron Ore"
+  },
+  {
+   "symbol": "AGNCZ",
+   "name": "AGNC Investment Corp. Depositary Shares Each Representing a 1/1000th Interest in a Share of 8.75% Series H Fixed-Rate Cumulative Redeemable Preferred Stock",
+   "sector": "Real Estate",
+   "sub_sector": "Real Estate Investment Trusts"
+  },
+  {
+   "symbol": "NMR",
+   "name": "Nomura Holdings Inc ADR American Depositary Shares",
+   "sector": "Financials",
+   "sub_sector": "Investment Bankers/Brokers/Service"
+  },
+  {
+   "symbol": "RYAAY",
+   "name": "Ryanair Holdings plc American Depositary Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Air Freight/Delivery Services"
+  },
+  {
+   "symbol": "KGC",
+   "name": "Kinross Gold Corporation Common Stock",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "FTS",
+   "name": "Fortis Inc. Common Shares",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "MDB",
+   "name": "MongoDB Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "GFS",
+   "name": "GlobalFoundries Inc. Ordinary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Semiconductors"
+  },
+  {
+   "symbol": "PBA",
+   "name": "Pembina Pipeline Corp. Ordinary Shares (Canada)",
+   "sector": "Energy",
+   "sub_sector": "Oil & Gas Production"
+  },
+  {
+   "symbol": "INSM",
+   "name": "Insmed Incorporated Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "TSEM",
+   "name": "Tower Semiconductor Ltd. Ordinary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Semiconductors"
+  },
+  {
+   "symbol": "ZM",
+   "name": "Zoom Communications Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Programming Data Processing"
+  },
+  {
+   "symbol": "SYM",
+   "name": "Symbotic Inc. Class A Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Industrial Machinery/Components"
+  },
+  {
+   "symbol": "BNTX",
+   "name": "BioNTech SE American Depositary Share",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Biological Products (No Diagnostic Substances)"
+  },
+  {
+   "symbol": "CPNG",
+   "name": "Coupang Inc. Class A Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Catalog/Specialty Distribution"
+  },
+  {
+   "symbol": "PHG",
+   "name": "Koninklijke Philips N.V. NY Registry Shares",
+   "sector": "Health Care",
+   "sub_sector": "Medical Electronics"
+  },
+  {
+   "symbol": "LPLA",
+   "name": "LPL Financial Holdings Inc. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Investment Bankers/Brokers/Service"
+  },
+  {
+   "symbol": "GH",
+   "name": "Guardant Health Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Medical Specialities"
+  },
+  {
+   "symbol": "FWONK",
+   "name": "Liberty Media Corporation Series C Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Broadcasting"
+  },
+  {
+   "symbol": "ASTS",
+   "name": "AST SpaceMobile Inc. Class A Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Telecommunications Equipment"
+  },
+  {
+   "symbol": "FCNCA",
+   "name": "First Citizens BancShares Inc. Class A Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "PS",
+   "name": "Pershing Square Inc. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Investment Managers"
+  },
+  {
+   "symbol": "TW",
+   "name": "Tradeweb Markets Inc. Class A Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Investment Bankers/Brokers/Service"
+  },
+  {
+   "symbol": "RBRK",
+   "name": "Rubrik Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "BSP",
+   "name": "Bending Spoons S.p.A. Ordinary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Programming Data Processing"
+  },
+  {
+   "symbol": "IHG",
+   "name": "Intercontinental Hotels Group American Depositary Shares (Each representing one Ordinary Share)",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Hotels/Resorts"
+  },
+  {
+   "symbol": "AFRM",
+   "name": "Affirm Holdings Inc. Class A Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "AER",
+   "name": "AerCap Holdings N.V. Ordinary Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Diversified Commercial Services"
+  },
+  {
+   "symbol": "BNH",
+   "name": "Brookfield Finance Inc. 4.625% Subordinated Notes due October 16 2080",
+   "sector": "Real Estate",
+   "sub_sector": "Building operators"
+  },
+  {
+   "symbol": "IOT",
+   "name": "Samsara Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "EDP Services"
+  },
+  {
+   "symbol": "CIB",
+   "name": "Grupo Cibest S.A. American Depositary Shares each representing four Preferred Shares",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "CRCL",
+   "name": "Circle Internet Group Inc. Class A Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "BNJ",
+   "name": "Brookfield Finance Inc. 4.50% Perpetual Subordinated Notes",
+   "sector": "Real Estate",
+   "sub_sector": "Building operators"
+  },
+  {
+   "symbol": "FWONA",
+   "name": "Liberty Media Corporation Series A Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Broadcasting"
+  },
+  {
+   "symbol": "MKL",
+   "name": "Markel Group Inc. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Property-Casualty Insurers"
+  },
+  {
+   "symbol": "RIVN",
+   "name": "Rivian Automotive Inc. Class A Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Auto Manufacturing"
+  },
+  {
+   "symbol": "BCH",
+   "name": "Banco De Chile ADS",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "AMRZ",
+   "name": "Amrize Ltd Ordinary Shares",
+   "sector": "Industrials",
+   "sub_sector": "Building Materials"
+  },
+  {
+   "symbol": "SOJC",
+   "name": "Southern Company (The) Series 2017B 5.25% Junior Subordinated Notes due December 1 2077",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "ARXS",
+   "name": "Arxis Inc. Class A Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Military/Government/Technical"
+  },
+  {
+   "symbol": "YPF",
+   "name": "YPF Sociedad Anonima American Depositary Shares",
+   "sector": "Energy",
+   "sub_sector": "Integrated oil Companies"
+  },
+  {
+   "symbol": "AQNB",
+   "name": "Algonquin Power & Utilities Corp. 6.20% Fixed-to-Floating Subordinated Notes Series 2019-A due July 1 2079",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "BPYPM",
+   "name": "Brookfield Property Partners L.P. 6.25% Class A Cumulative Redeemable Preferred Units Series 1",
+   "sector": "Financials",
+   "sub_sector": "Real Estate"
+  },
+  {
+   "symbol": "WF",
+   "name": "Woori Financial Group Inc. American Depositary Shares (each representing three (3) shares of Common Stock)",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "SOJD",
+   "name": "Southern Company (The) Series 2020A 4.95% Junior Subordinated Notes due January 30 2080",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "BCE",
+   "name": "BCE Inc. Common Stock",
+   "sector": "Communication Services",
+   "sub_sector": "Telecommunications Equipment"
+  },
+  {
+   "symbol": "PAAS",
+   "name": "Pan American Silver Corp. Common Stock",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "BEP",
+   "name": "Brookfield Renewable Partners L.P. Limited Partnership Units",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "BPYPP",
+   "name": "Brookfield Property Partners L.P. 6.50% Class A Cumulative Redeemable Perpetual Preferred Units",
+   "sector": "Financials",
+   "sub_sector": "Real Estate"
+  },
+  {
+   "symbol": "PKX",
+   "name": "POSCO HOLDINGS INC. American Depositary Shares (Each representing 1/4th of a share of Common Stock)",
+   "sector": "Industrials",
+   "sub_sector": "Steel/Iron Ore"
+  },
+  {
+   "symbol": "WES",
+   "name": "Western Midstream Partners LP Common Units Representing Limited Partner Interests",
+   "sector": "Utilities",
+   "sub_sector": "Natural Gas Distribution"
+  },
+  {
+   "symbol": "SQM",
+   "name": "Sociedad Quimica y Minera S.A. Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Mining & Quarrying of Nonmetallic Minerals (No Fuels)"
+  },
+  {
+   "symbol": "GFL",
+   "name": "GFL Environmental Inc. Subordinate voting shares no par value",
+   "sector": "Utilities",
+   "sub_sector": "Environmental Services"
+  },
+  {
+   "symbol": "SSNC",
+   "name": "SS&C Technologies Holdings Inc. Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "BPYPO",
+   "name": "Brookfield Property Partners L.P. 6.375% Class A Cumulative Redeemable Perpetual Preferred Units Series 2",
+   "sector": "Financials",
+   "sub_sector": "Real Estate"
+  },
+  {
+   "symbol": "KSPI",
+   "name": "Joint Stock Company Kaspi.kz American Depository Shares",
+   "sector": "",
+   "sub_sector": ""
+  },
+  {
+   "symbol": "SBS",
+   "name": "Companhia de saneamento Basico Do Estado De Sao Paulo - Sabesp American Depositary Shares (Each repstg 250 Common Shares)",
+   "sector": "Utilities",
+   "sub_sector": "Water Supply"
+  },
+  {
+   "symbol": "ONON",
+   "name": "On Holding AG Class A Ordinary Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Shoe Manufacturing"
+  },
+  {
+   "symbol": "VIV",
+   "name": "Telefonica Brasil S.A. American Depositary Shares (Each representing One Common Share)",
+   "sector": "Communication Services",
+   "sub_sector": "Telecommunications Equipment"
+  },
+  {
+   "symbol": "U",
+   "name": "Unity Software Inc. Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "PAA",
+   "name": "Plains All American Pipeline L.P. Common Units representing Limited Partner Interests",
+   "sector": "Energy",
+   "sub_sector": "Natural Gas Distribution"
+  },
+  {
+   "symbol": "FTAI",
+   "name": "FTAI Aviation Ltd. Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Misc Corporate Leasing Services"
+  },
+  {
+   "symbol": "MGA",
+   "name": "Magna International Inc. Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Auto Parts:O.E.M."
+  },
+  {
+   "symbol": "SOJE",
+   "name": "Southern Company (The) Series 2020C 4.20% Junior Subordinated Notes due October 15 2060",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "IONQ",
+   "name": "IonQ Inc. Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "EDP Services"
+  },
+  {
+   "symbol": "RCI",
+   "name": "Rogers Communication Inc. Common Stock",
+   "sector": "Communication Services",
+   "sub_sector": "Cable & Other Pay Television Services"
+  },
+  {
+   "symbol": "AEG",
+   "name": "Aegon Ltd. New York Registry Shares",
+   "sector": "Financials",
+   "sub_sector": "Life Insurance"
+  },
+  {
+   "symbol": "BPYPN",
+   "name": "Brookfield Property Partners L.P. 5.750% Class A Cumulative Redeemable Perpetual Preferred Units Series 3",
+   "sector": "Financials",
+   "sub_sector": "Real Estate"
+  },
+  {
+   "symbol": "IREN",
+   "name": "IREN Limited Ordinary Shares",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "TPG",
+   "name": "TPG Inc. Class A Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Investment Managers"
+  },
+  {
+   "symbol": "BMNR",
+   "name": "BitMine Immersion Technologies Inc. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "WIT",
+   "name": "Wipro Limited Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "EDP Services"
+  },
+  {
+   "symbol": "BSAC",
+   "name": "Banco Santander - Chile ADS",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "BIP",
+   "name": "Brookfield Infrastructure Partners LP Limited Partnership Units",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Marine Transportation"
+  },
+  {
+   "symbol": "GIB",
+   "name": "CGI Inc. Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Professional Services"
+  },
+  {
+   "symbol": "DUKB",
+   "name": "Duke Energy Corporation 5.625% Junior Subordinated Debentures due 2078",
+   "sector": "Utilities",
+   "sub_sector": "Power Generation"
+  },
+  {
+   "symbol": "TEM",
+   "name": "Tempus AI Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Programming Data Processing"
+  },
+  {
+   "symbol": "AS",
+   "name": "Amer Sports Inc. Ordinary Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Apparel"
+  },
+  {
+   "symbol": "SUN",
+   "name": "Sunoco LP Common Units representing limited partner interests",
+   "sector": "Energy",
+   "sub_sector": "Integrated oil Companies"
+  },
+  {
+   "symbol": "ASND",
+   "name": "Ascendis Pharma A/S Ordinary Share",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "TIGO",
+   "name": "Millicom International Cellular S.A. Common Stock",
+   "sector": "Communication Services",
+   "sub_sector": "Telecommunications Equipment"
+  },
+  {
+   "symbol": "LTM",
+   "name": "LATAM Airlines Group S.A. American Depositary Shares (each representing two thousand (2000) shares of Common Stock)",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Air Freight/Delivery Services"
+  },
+  {
+   "symbol": "JHX",
+   "name": "James Hardie Industries plc. Ordinary Shares",
+   "sector": "Industrials",
+   "sub_sector": "Building Materials"
+  },
+  {
+   "symbol": "EMA",
+   "name": "Emera Incorporated Common Shares",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "CX",
+   "name": "Cemex S.A.B. de C.V. Sponsored ADR",
+   "sector": "Industrials",
+   "sub_sector": "Building Materials"
+  },
+  {
+   "symbol": "LOGI",
+   "name": "Logitech International S.A. Ordinary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Computer peripheral equipment"
+  },
+  {
+   "symbol": "APOS",
+   "name": "Apollo Global Management Inc. 7.625% Fixed-Rate Resettable Junior Subordinated Notes due 2053",
+   "sector": "Financials",
+   "sub_sector": "Investment Managers"
+  },
+  {
+   "symbol": "OWL",
+   "name": "Blue Owl Capital Inc. Class A Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Investment Managers"
+  },
+  {
+   "symbol": "KEP",
+   "name": "Korea Electric Power Corporation Common Stock",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "WSE",
+   "name": "Wise Group plc Class A Ordinary Shares",
+   "sector": "Industrials",
+   "sub_sector": "Diversified Commercial Services"
+  },
+  {
+   "symbol": "VLYPN",
+   "name": "Valley National Bancorp 8.250% Fixed-Rate Reset Non-Cumulative Perpetual Preferred Stock Series C",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "SLMBP",
+   "name": "SLM Corporation Floating Rate Non-Cumulative Preferred Stock Series B",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "EMBJ",
+   "name": "Embraer S.A. Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Aerospace"
+  },
+  {
+   "symbol": "VLYPP",
+   "name": "Valley National Bancorp 6.25% Fixed-to-Floating Rate Non-Cumulative Perpetual Preferred Stock Series A",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "KKRS",
+   "name": "KKR Group Finance Co. IX LLC 4.625% Subordinated Notes due 2061",
+   "sector": "Financials",
+   "sub_sector": "Investment Managers"
+  },
+  {
+   "symbol": "AGI",
+   "name": "Alamos Gold Inc. Class A Common Shares",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "ARCC",
+   "name": "Ares Capital Corporation Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "VLYPO",
+   "name": "Valley National Bancorp 5.50% Fixed-to-Floating Rate Non-Cumulative Perpetual Preferred Stock Series B",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "INIO",
+   "name": "INNIO N.V. Ordinary Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Metal Fabrications"
+  },
+  {
+   "symbol": "SKM",
+   "name": "SK Telecom Co. Ltd. Common Stock",
+   "sector": "Communication Services",
+   "sub_sector": "Telecommunications Equipment"
+  },
+  {
+   "symbol": "W",
+   "name": "Wayfair Inc. Class A Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Catalog/Specialty Distribution"
+  },
+  {
+   "symbol": "ICLR",
+   "name": "ICON plc Ordinary Shares",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Commercial Physical & Biological Resarch"
+  },
+  {
+   "symbol": "FLUT",
+   "name": "Flutter Entertainment plc Ordinary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Programming Data Processing"
+  },
+  {
+   "symbol": "STLA",
+   "name": "Stellantis N.V. Common Shares",
+   "sector": "Industrials",
+   "sub_sector": "Auto Manufacturing"
+  },
+  {
+   "symbol": "CET",
+   "name": "Central Securities Corporation Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance/Investors Services"
+  },
+  {
+   "symbol": "HTHT",
+   "name": "H World Group Limited American Depositary Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Hotels/Resorts"
+  },
+  {
+   "symbol": "TU",
+   "name": "Telus Corporation Ordinary Shares",
+   "sector": "Communication Services",
+   "sub_sector": "Telecommunications Equipment"
+  },
+  {
+   "symbol": "CHKP",
+   "name": "Check Point Software Technologies Ltd. Ordinary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "EQX",
+   "name": "Equinox Gold Corp. Common Shares",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "TLK",
+   "name": "PT Telekomunikasi Indonesia Tbk",
+   "sector": "Communication Services",
+   "sub_sector": "Telecommunications Equipment"
+  },
+  {
+   "symbol": "BBIO",
+   "name": "BridgeBio Pharma Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "QNT",
+   "name": "Quantinuum Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "EDP Services"
+  },
+  {
+   "symbol": "FMS",
+   "name": "Fresenius Medical Care AG American Depositary Shares (Each representing 1/2 of an Ordinary Share)",
+   "sector": "Health Care",
+   "sub_sector": "Misc Health and Biotechnology Services"
+  },
+  {
+   "symbol": "PAC",
+   "name": "Grupo Aeroportuario Del Pacifico S.A. B. de C.V. Grupo Aeroportuario Del Pacifico S.A. de C.V. (each representing 10 Series B shares)",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Aerospace"
+  },
+  {
+   "symbol": "GRAB",
+   "name": "Grab Holdings Limited Class A Ordinary Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Business Services"
+  },
+  {
+   "symbol": "QXO",
+   "name": "QXO Inc. Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "RETAIL: Building Materials"
+  },
+  {
+   "symbol": "MAIR",
+   "name": "Madison Air Solutions Corporation Class A Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Pollution Control Equipment"
+  },
+  {
+   "symbol": "JBS",
+   "name": "JBS N.V. Class A Common Shares",
+   "sector": "Consumer Staples",
+   "sub_sector": "Meat/Poultry/Fish"
+  },
+  {
+   "symbol": "SMMT",
+   "name": "Summit Therapeutics Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "CNA",
+   "name": "CNA Financial Corporation Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Property-Casualty Insurers"
+  },
+  {
+   "symbol": "BNT",
+   "name": "Brookfield Wealth Solutions Ltd. Class A Exchangeable Limited Voting Shares",
+   "sector": "Financials",
+   "sub_sector": "Property-Casualty Insurers"
+  },
+  {
+   "symbol": "SREA",
+   "name": "DBA Sempra 5.750% Junior Subordinated Notes due 2079",
+   "sector": "Utilities",
+   "sub_sector": "Natural Gas Distribution"
+  },
+  {
+   "symbol": "MDGL",
+   "name": "Madrigal Pharmaceuticals Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "HBM",
+   "name": "Hudbay Minerals Inc. Ordinary Shares (Canada)",
+   "sector": "Materials",
+   "sub_sector": "Metal Mining"
+  },
+  {
+   "symbol": "TWST",
+   "name": "Twist Bioscience Corporation Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Biological Products (No Diagnostic Substances)"
+  },
+  {
+   "symbol": "UHAL",
+   "name": "U-Haul Holding Company Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Rental/Leasing Companies"
+  },
+  {
+   "symbol": "NVMI",
+   "name": "Nova Ltd. Ordinary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Electronic Components"
+  },
+  {
+   "symbol": "SAIL",
+   "name": "SailPoint Inc. Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "TXG",
+   "name": "10x Genomics Inc. Class A Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Biotechnology: Laboratory Analytical Instruments"
+  },
+  {
+   "symbol": "MICC",
+   "name": "The Magnum Ice Cream Company N.V. Ordinary Shares",
+   "sector": "Consumer Staples",
+   "sub_sector": "Specialty Foods"
+  },
+  {
+   "symbol": "HUT",
+   "name": "Hut 8 Corp. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "SNN",
+   "name": "Smith & Nephew SNATS Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Industrial Specialties"
+  },
+  {
+   "symbol": "HMY",
+   "name": "Harmony Gold Mining Company Limited",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "FPS",
+   "name": "Forgent Power Solutions Inc. Class A Common Stock",
+   "sector": "Energy",
+   "sub_sector": "Industrial Machinery/Components"
+  },
+  {
+   "symbol": "FRHC",
+   "name": "Freedom Holding Corp. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Investment Bankers/Brokers/Service"
+  },
+  {
+   "symbol": "FROG",
+   "name": "JFrog Ltd. Ordinary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "PAYP",
+   "name": "PayPay Corporation American Depository Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Business Services"
+  },
+  {
+   "symbol": "SUZ",
+   "name": "Suzano S.A. American Depositary Shares (each representing One Ordinary Share)",
+   "sector": "Materials",
+   "sub_sector": "Paper"
+  },
+  {
+   "symbol": "FIG",
+   "name": "Figma Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "BIPJ",
+   "name": "Brookfield Infrastructure Corporation 7.250% Subordinated Notes due 2084",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Marine Transportation"
+  },
+  {
+   "symbol": "FRO",
+   "name": "Frontline Plc Ordinary Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Marine Transportation"
+  },
+  {
+   "symbol": "TX",
+   "name": "Ternium S.A. Ternium S.A. American Depositary Shares (each representing ten shares USD1.00 par value)",
+   "sector": "Industrials",
+   "sub_sector": "Steel/Iron Ore"
+  },
+  {
+   "symbol": "GSAT",
+   "name": "Globalstar Inc. Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Telecommunications Equipment"
+  },
+  {
+   "symbol": "IAG",
+   "name": "Iamgold Corporation Ordinary Shares",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "DDS",
+   "name": "Dillard's Inc. Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Department/Specialty Retail Stores"
+  },
+  {
+   "symbol": "AUR",
+   "name": "Aurora Innovation Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "EDP Services"
+  },
+  {
+   "symbol": "BEPC",
+   "name": "Brookfield Renewable Corporation Brookfield Renewable Corporation Class A Subordinate Voting Shares",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "XP",
+   "name": "XP Inc. Class A Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Investment Bankers/Brokers/Service"
+  },
+  {
+   "symbol": "RDY",
+   "name": "Dr. Reddy's Laboratories Ltd Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "RTO",
+   "name": "Rentokil Initial plc American Depositary Shares (each representing five (5) Ordinary Shares)",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Other Consumer Services"
+  },
+  {
+   "symbol": "EGO",
+   "name": "Eldorado Gold Corporation Ordinary Shares",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "AXSM",
+   "name": "Axsome Therapeutics Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "BPOP",
+   "name": "Popular Inc. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "CHYM",
+   "name": "Chime Financial Inc. Class A Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "TFII",
+   "name": "TFI International Inc. Common Shares",
+   "sector": "Industrials",
+   "sub_sector": "Trucking Freight/Courier Services"
+  },
+  {
+   "symbol": "DRS",
+   "name": "Leonardo DRS Inc. Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Industrial Machinery/Components"
+  },
+  {
+   "symbol": "SATA",
+   "name": "Strive Inc. Variable Rate Series A Perpetual Preferred Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "PSO",
+   "name": "Pearson Plc Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Books"
+  },
+  {
+   "symbol": "ENLT",
+   "name": "Enlight Renewable Energy Ltd. Ordinary Shares",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "ONBPP",
+   "name": "Old National Bancorp Depositary Shares Each Representing a 1/40th Interest in a Share of Series A Preferred Stock",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "ONBPO",
+   "name": "Old National Bancorp Depositary Shares Each Representing a 1/40th Interest in a Share of Series C Preferred Stock",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "GGB",
+   "name": "Gerdau S.A. Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Steel/Iron Ore"
+  },
+  {
+   "symbol": "SIMO",
+   "name": "Silicon Motion Technology Corporation American Depositary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Semiconductors"
+  },
+  {
+   "symbol": "JAN",
+   "name": "Janus Living Inc. Class A-1 Common Stock",
+   "sector": "Real Estate",
+   "sub_sector": "Real Estate Investment Trusts"
+  },
+  {
+   "symbol": "KYMR",
+   "name": "Kymera Therapeutics Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Biological Products (No Diagnostic Substances)"
+  },
+  {
+   "symbol": "MOD",
+   "name": "Modine Manufacturing Company Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Auto Parts:O.E.M."
+  },
+  {
+   "symbol": "QGEN",
+   "name": "Qiagen N.V. Common Shares",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Biological Products (No Diagnostic Substances)"
+  },
+  {
+   "symbol": "KT",
+   "name": "KT Corporation Common Stock",
+   "sector": "Communication Services",
+   "sub_sector": "Telecommunications Equipment"
+  },
+  {
+   "symbol": "ESTC",
+   "name": "Elastic N.V. Ordinary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "LLYVK",
+   "name": "Liberty Live Holdings Inc. Series C Liberty Live Group Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Services-Misc. Amusement & Recreation"
+  },
+  {
+   "symbol": "OSCR",
+   "name": "Oscar Health Inc. Class A Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Medical Specialities"
+  },
+  {
+   "symbol": "GLXY",
+   "name": "Galaxy Digital Inc. Class A Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Investment Bankers/Brokers/Service"
+  },
+  {
+   "symbol": "IBRX",
+   "name": "ImmunityBio Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Biological Products (No Diagnostic Substances)"
+  },
+  {
+   "symbol": "SSL",
+   "name": "Sasol Ltd. American Depositary Shares",
+   "sector": "Energy",
+   "sub_sector": "Oil & Gas Production"
+  },
+  {
+   "symbol": "ELPC",
+   "name": "Companhia Paranaense de Energia (COPEL) American Depositary Shares (each representing four (4) Common Shares)",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "CAI",
+   "name": "Caris Life Sciences Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Medical Specialities"
+  },
+  {
+   "symbol": "ENJ",
+   "name": "Entergy New Orleans LLC First Mortgage Bonds 5.0% Series due December 1 2052",
+   "sector": "Utilities",
+   "sub_sector": "Power Generation"
+  },
+  {
+   "symbol": "LLYVA",
+   "name": "Liberty Live Holdings Inc. Series A Liberty Live Group Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Services-Misc. Amusement & Recreation"
+  },
+  {
+   "symbol": "EMP",
+   "name": "Entergy Mississippi LLC First Mortgage Bonds 4.90% Series Due October 1 2066",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "AG",
+   "name": "First Majestic Silver Corp. Ordinary Shares (Canada)",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "SNAP",
+   "name": "Snap Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Programming Data Processing"
+  },
+  {
+   "symbol": "EAI",
+   "name": "Entergy Arkansas LLC First Mortgage Bonds 4.875% Series Due September 1 2066",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "KLAR",
+   "name": "Klarna Group plc Ordinary Shares",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "PCVX",
+   "name": "Vaxcyte Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Biological Products (No Diagnostic Substances)"
+  },
+  {
+   "symbol": "EDU",
+   "name": "New Oriental Education & Technology Group Inc. Sponsored ADR representing 10 Ordinary Share (Cayman Islands)",
+   "sector": "Real Estate",
+   "sub_sector": "Other Consumer Services"
+  },
+  {
+   "symbol": "YMM",
+   "name": "Full Truck Alliance Co. Ltd. American Depositary Shares (each representing 20 Class A Ordinary Shares)",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "TIMB",
+   "name": "TIM S.A. American Depositary Shares (Each representing 5 Common Shares)",
+   "sector": "Communication Services",
+   "sub_sector": "Telecommunications Equipment"
+  },
+  {
+   "symbol": "ABVX",
+   "name": "Abivax SA American Depositary Shares",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "AAOI",
+   "name": "Applied Optoelectronics Inc. Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Semiconductors"
+  },
+  {
+   "symbol": "BVN",
+   "name": "Buenaventura Mining Company Inc.",
+   "sector": "Materials",
+   "sub_sector": "Metal Mining"
+  },
+  {
+   "symbol": "RIOT",
+   "name": "Riot Platforms Inc. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "LINE",
+   "name": "Lineage Inc. Common Stock",
+   "sector": "Real Estate",
+   "sub_sector": "Real Estate Investment Trusts"
+  },
+  {
+   "symbol": "PRAX",
+   "name": "Praxis Precision Medicines Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "MAAS",
+   "name": "Maase Inc. Class A Ordinary Shares",
+   "sector": "Financials",
+   "sub_sector": "Investment Managers"
+  },
+  {
+   "symbol": "BOKF",
+   "name": "BOK Financial Corporation Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "UGP",
+   "name": "Ultrapar Participacoes S.A. (New) American Depositary Shares (Each representing one Common Share)",
+   "sector": "Utilities",
+   "sub_sector": "Oil/Gas Transmission"
+  },
+  {
+   "symbol": "S",
+   "name": "SentinelOne Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "GIL",
+   "name": "Gildan Activewear Inc. Class A Sub. Vot. Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Apparel"
+  },
+  {
+   "symbol": "CAE",
+   "name": "CAE Inc. Common Shares",
+   "sector": "",
+   "sub_sector": "Industrial Machinery/Components"
+  },
+  {
+   "symbol": "STN",
+   "name": "Stantec Inc Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Military/Government/Technical"
+  },
+  {
+   "symbol": "GTLB",
+   "name": "GitLab Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "CBC",
+   "name": "Central Bancompany Inc. Class A Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "LEVI",
+   "name": "Levi Strauss & Co Class A Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Apparel"
+  },
+  {
+   "symbol": "IONS",
+   "name": "Ionis Pharmaceuticals Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "SYRE",
+   "name": "Spyre Therapeutics Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "WULF",
+   "name": "TeraWulf Inc. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "SFD",
+   "name": "Smithfield Foods Inc. Common Stock",
+   "sector": "Consumer Staples",
+   "sub_sector": "Meat/Poultry/Fish"
+  },
+  {
+   "symbol": "TPGXL",
+   "name": "TPG Operating Group II L.P. 6.950% Fixed-Rate Junior Subordinated Notes due 2064",
+   "sector": "",
+   "sub_sector": ""
+  },
+  {
+   "symbol": "PRH",
+   "name": "Prudential Financial Inc. 5.950% Junior Subordinated Notes due 2062",
+   "sector": "Financials",
+   "sub_sector": "Life Insurance"
+  },
+  {
+   "symbol": "HNGE",
+   "name": "Hinge Health Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "EDP Services"
+  },
+  {
+   "symbol": "PCOR",
+   "name": "Procore Technologies Inc. Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "VIST",
+   "name": "Vista Energy S.A.B. de C.V. American Depositary Shares each representing one series A share with no par value",
+   "sector": "Energy",
+   "sub_sector": "Oil & Gas Production"
+  },
+  {
+   "symbol": "VFS",
+   "name": "VinFast Auto Ltd. Ordinary Shares",
+   "sector": "Industrials",
+   "sub_sector": "Auto Manufacturing"
+  },
+  {
+   "symbol": "APLD",
+   "name": "Applied Digital Corporation Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "EDP Services"
+  },
+  {
+   "symbol": "ASR",
+   "name": "Grupo Aeroportuario del Sureste S.A. de C.V. Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Aerospace"
+  },
+  {
+   "symbol": "NTSK",
+   "name": "Netskope Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "ZETA",
+   "name": "Zeta Global Holdings Corp. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "GJS",
+   "name": "Goldman Sachs Group Securities STRATS Trust for Goldman Sachs Group Securities Series 2006-2",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "SBSW",
+   "name": "D/B/A Sibanye-Stillwater Limited ADS",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "PRS",
+   "name": "Prudential Financial Inc. 5.625% Junior Subordinated Notes due 2058",
+   "sector": "Financials",
+   "sub_sector": "Life Insurance"
+  },
+  {
+   "symbol": "SOBO",
+   "name": "South Bow Corporation Common Shares",
+   "sector": "Energy",
+   "sub_sector": "Natural Gas Distribution"
+  },
+  {
+   "symbol": "PRMB",
+   "name": "Primo Brands Corporation Class A Common Stock",
+   "sector": "Consumer Staples",
+   "sub_sector": "Beverages (Production/Distribution)"
+  },
+  {
+   "symbol": "BIPH",
+   "name": "Brookfield Infrastructure Corporation 5.000% Subordinated Notes due 2081",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Marine Transportation"
+  },
+  {
+   "symbol": "BTG",
+   "name": "B2Gold Corp Common shares (Canada)",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "CIFR",
+   "name": "Cipher Digital Inc. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "IMVT",
+   "name": "Immunovant Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Biological Products (No Diagnostic Substances)"
+  },
+  {
+   "symbol": "OKLO",
+   "name": "Oklo Inc. Class A common stock",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "SSRM",
+   "name": "SSR Mining Inc. Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "COMP",
+   "name": "Compass Inc. Class A Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Real Estate"
+  },
+  {
+   "symbol": "AXS",
+   "name": "Axis Capital Holdings Limited Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Property-Casualty Insurers"
+  },
+  {
+   "symbol": "PACS",
+   "name": "PACS Group Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Hospital/Nursing Management"
+  },
+  {
+   "symbol": "RYTM",
+   "name": "Rhythm Pharmaceuticals Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "TAP",
+   "name": "Molson Coors Beverage Company Class B Common Stock",
+   "sector": "Consumer Staples",
+   "sub_sector": "Beverages (Production/Distribution)"
+  },
+  {
+   "symbol": "DSGX",
+   "name": "Descartes Systems Group Inc. (The) Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "BLTE",
+   "name": "Belite Bio Inc American Depositary Shares",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "CAMT",
+   "name": "Camtek Ltd. Ordinary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Electronic Components"
+  },
+  {
+   "symbol": "MBLY",
+   "name": "Mobileye Global Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "TAL",
+   "name": "TAL Education Group American Depositary Shares",
+   "sector": "Real Estate",
+   "sub_sector": "Other Consumer Services"
+  },
+  {
+   "symbol": "GLBE",
+   "name": "Global-E Online Ltd. Ordinary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "FIGR",
+   "name": "Figure Technology Solutions Inc. Class A Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "BZ",
+   "name": "KANZHUN LIMITED American Depository Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Programming Data Processing"
+  },
+  {
+   "symbol": "NFEGP",
+   "name": "New Fortress Energy Inc. Series A Mandatorily Convertible Preferred Stock",
+   "sector": "Utilities",
+   "sub_sector": "Oil/Gas Transmission"
+  },
+  {
+   "symbol": "AUGO",
+   "name": "Aura Minerals Inc. Common Shares",
+   "sector": "Materials",
+   "sub_sector": "Metal Mining"
+  },
+  {
+   "symbol": "BEPJ",
+   "name": "Brookfield BRP Holdings (Canada) Inc. 7.250% Perpetual Subordinated Notes",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "NICE",
+   "name": "NICE Ltd American Depositary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "ICL",
+   "name": "ICL Group Ltd. Ordinary Shares",
+   "sector": "Industrials",
+   "sub_sector": "Agricultural Chemicals"
+  },
+  {
+   "symbol": "OMF",
+   "name": "OneMain Holdings Inc. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "RUSHB",
+   "name": "Rush Enterprises Inc. Class B",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Retail-Auto Dealers and Gas Stations"
+  },
+  {
+   "symbol": "OR",
+   "name": "OR Royalties Inc. Common Shares",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "QBTS",
+   "name": "D-Wave Quantum Inc. Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "EDP Services"
+  },
+  {
+   "symbol": "TFPM",
+   "name": "Triple Flag Precious Metals Corp. Common Shares",
+   "sector": "Industrials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "GDS",
+   "name": "GDS Holdings Limited ADS",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Programming Data Processing"
+  },
+  {
+   "symbol": "ACGLO",
+   "name": "Arch Capital Group Ltd. Depositary Shares Each Representing 1/1000th Interest in a Share of 5.45% Non-Cumulative Preferred Shares Series F",
+   "sector": "Financials",
+   "sub_sector": "Property-Casualty Insurers"
+  },
+  {
+   "symbol": "ZG",
+   "name": "Zillow Group Inc. Class A Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Business Services"
+  },
+  {
+   "symbol": "TBBB",
+   "name": "BBB Foods Inc. Class A Common Shares",
+   "sector": "Consumer Staples",
+   "sub_sector": "Food Chains"
+  },
+  {
+   "symbol": "BLDR",
+   "name": "Builders FirstSource Inc. Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "RETAIL: Building Materials"
+  },
+  {
+   "symbol": "LB",
+   "name": "LandBridge Company LLC Class A Shares Representing Limited Liability Company Interests",
+   "sector": "Energy",
+   "sub_sector": "Oil & Gas Production"
+  },
+  {
+   "symbol": "DOX",
+   "name": "Amdocs Limited Ordinary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "EDP Services"
+  },
+  {
+   "symbol": "Z",
+   "name": "Zillow Group Inc. Class C Capital Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Business Services"
+  },
+  {
+   "symbol": "CGON",
+   "name": "CG Oncology Inc. Common stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Biological Products (No Diagnostic Substances)"
+  },
+  {
+   "symbol": "IFS",
+   "name": "Intercorp Financial Services Inc. Common Shares",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "CMSC",
+   "name": "CMS Energy Corporation 5.875% Junior Subordinated Notes due 2078",
+   "sector": "Utilities",
+   "sub_sector": "Power Generation"
+  },
+  {
+   "symbol": "INGM",
+   "name": "Ingram Micro Holding Corporation Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Retail: Computer Software & Peripheral Equipment"
+  },
+  {
+   "symbol": "PL",
+   "name": "Planet Labs PBC Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Radio And Television Broadcasting And Communications Equipment"
+  },
+  {
+   "symbol": "JOBY",
+   "name": "Joby Aviation Inc. Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Aerospace"
+  },
+  {
+   "symbol": "CMSD",
+   "name": "CMS Energy Corporation 5.875% Junior Subordinated Notes due 2079",
+   "sector": "Utilities",
+   "sub_sector": "Power Generation"
+  },
+  {
+   "symbol": "DPC",
+   "name": "DPC Holdings PLC Ordinary Shares",
+   "sector": "Communication Services",
+   "sub_sector": "Metal Fabrications"
+  },
+  {
+   "symbol": "BLCO",
+   "name": "Bausch + Lomb Corporation Common Shares",
+   "sector": "Health Care",
+   "sub_sector": "Ophthalmic Goods"
+  },
+  {
+   "symbol": "OGC",
+   "name": "OceanaGold Corporation Common Shares",
+   "sector": "",
+   "sub_sector": ""
+  },
+  {
+   "symbol": "NXE",
+   "name": "Nexgen Energy Ltd. Common Shares",
+   "sector": "Materials",
+   "sub_sector": "Other Metals and Minerals"
+  },
+  {
+   "symbol": "CMBT",
+   "name": "CMB.TECH NV Ordinary Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Marine Transportation"
+  },
+  {
+   "symbol": "SRRK",
+   "name": "Scholar Rock Holding Corporation Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Biological Products (No Diagnostic Substances)"
+  },
+  {
+   "symbol": "ANDG",
+   "name": "Andersen Group Inc. Class A Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Business Services"
+  },
+  {
+   "symbol": "LOAR",
+   "name": "Loar Holdings Inc. Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Military/Government/Technical"
+  },
+  {
+   "symbol": "SGHC",
+   "name": "Super Group (SGHC) Limited Ordinary Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Services-Misc. Amusement & Recreation"
+  },
+  {
+   "symbol": "GGAL",
+   "name": "Grupo Financiero Galicia S.A. American Depositary Shares",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "KNSA",
+   "name": "Kiniksa Pharmaceuticals International plc Class A Ordinary Shares",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "GRAL",
+   "name": "GRAIL Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Medical Specialities"
+  },
+  {
+   "symbol": "XMTR",
+   "name": "Xometry Inc. Class A Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Business Services"
+  },
+  {
+   "symbol": "RIG",
+   "name": "Transocean Ltd (Switzerland) Common Stock",
+   "sector": "Energy",
+   "sub_sector": "Oil & Gas Production"
+  },
+  {
+   "symbol": "ENIC",
+   "name": "Enel Chile S.A. American Depositary Shares (Each representing 50 shares of Common Stock)",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "XE",
+   "name": "X-Energy Inc. Class A Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Metal Fabrications"
+  },
+  {
+   "symbol": "STVN",
+   "name": "Stevanato Group S.p.A. Ordinary Shares",
+   "sector": "Health Care",
+   "sub_sector": "Medical/Dental Instruments"
+  },
+  {
+   "symbol": "TTD",
+   "name": "The Trade Desk Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Programming Data Processing"
+  },
+  {
+   "symbol": "CIG",
+   "name": "Comp En De Mn Cemig ADS American Depositary Shares",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "TVTX",
+   "name": "Travere Therapeutics Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "TTAN",
+   "name": "ServiceTitan Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "LGN",
+   "name": "Legence Corp. Class A Common stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Engineering & Construction"
+  },
+  {
+   "symbol": "MMED",
+   "name": "MiniMed Group Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Medical/Dental Instruments"
+  },
+  {
+   "symbol": "BLSH",
+   "name": "Bullish Ordinary Shares",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "BLLN",
+   "name": "BillionToOne Inc. Class A Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Medical Specialities"
+  },
+  {
+   "symbol": "CMSA",
+   "name": "CMS Energy Corporation 5.625% Junior Subordinated Notes due 2078",
+   "sector": "Utilities",
+   "sub_sector": "Power Generation"
+  },
+  {
+   "symbol": "KOF",
+   "name": "Coca Cola Femsa S.A.B. de C.V.  American Depositary Shares each representing 10 Units (each Unit consists of 3 Series B Shares and 5 Series L Shares)",
+   "sector": "Consumer Staples",
+   "sub_sector": "Beverages (Production/Distribution)"
+  },
+  {
+   "symbol": "MIRM",
+   "name": "Mirum Pharmaceuticals Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "AVAL",
+   "name": "Grupo Aval Acciones y Valores S.A. ADR (Each representing 20 preferred shares)",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "FSV",
+   "name": "FirstService Corporation Common Shares",
+   "sector": "Financials",
+   "sub_sector": "Real Estate"
+  },
+  {
+   "symbol": "WFG",
+   "name": "West Fraser Timber Co. Ltd Common stock",
+   "sector": "Materials",
+   "sub_sector": "Forest Products"
+  },
+  {
+   "symbol": "ORKA",
+   "name": "Oruka Therapeutics Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: In Vitro & In Vivo Diagnostic Substances"
+  },
+  {
+   "symbol": "OTEX",
+   "name": "Open Text Corporation Common Shares",
+   "sector": "Information Technology",
+   "sub_sector": "EDP Services"
+  },
+  {
+   "symbol": "CGABL",
+   "name": "The Carlyle Group Inc. 4.625% Subordinated Notes due 2061",
+   "sector": "Financials",
+   "sub_sector": "Investment Managers"
+  },
+  {
+   "symbol": "COGT",
+   "name": "Cogent Biosciences Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "WPP",
+   "name": "WPP plc American Depositary Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Advertising"
+  },
+  {
+   "symbol": "VRNS",
+   "name": "Varonis Systems Inc. Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "BIRK",
+   "name": "Birkenstock Holding plc Ordinary Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Shoe Manufacturing"
+  },
+  {
+   "symbol": "USAR",
+   "name": "USA Rare Earth Inc. Class A Common Stock",
+   "sector": "Materials",
+   "sub_sector": "Metal Mining"
+  },
+  {
+   "symbol": "CPA",
+   "name": "Copa Holdings S.A. Class A Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Air Freight/Delivery Services"
+  },
+  {
+   "symbol": "CORZZ",
+   "name": "Core Scientific Inc. Tranche 2 Warrants",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "BETA",
+   "name": "Beta Technologies Inc. Class A Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Aerospace"
+  },
+  {
+   "symbol": "RGTI",
+   "name": "Rigetti Computing Inc. Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "EDP Services"
+  },
+  {
+   "symbol": "PFH",
+   "name": "Prudential Financial Inc. 4.125% Junior Subordinated Notes due 2060",
+   "sector": "Financials",
+   "sub_sector": "Life Insurance"
+  },
+  {
+   "symbol": "OBDC",
+   "name": "Blue Owl Capital Corporation Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Diversified Financial Services"
+  },
+  {
+   "symbol": "CORZ",
+   "name": "Core Scientific Inc. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "JMKE",
+   "name": "Jersey Mike's Subs Inc. Class A Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Restaurants"
+  },
+  {
+   "symbol": "MRX",
+   "name": "Marex Group Limited Ordinary Shares",
+   "sector": "Financials",
+   "sub_sector": "Investment Bankers/Brokers/Service"
+  },
+  {
+   "symbol": "BBUC",
+   "name": "Brookfield Business Corporation Class A Subordinate Voting Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Engineering & Construction"
+  },
+  {
+   "symbol": "PAGP",
+   "name": "Plains GP Holdings L.P. Class A Units representing Limited Partner Interests",
+   "sector": "Energy",
+   "sub_sector": "Natural Gas Distribution"
+  },
+  {
+   "symbol": "CRSP",
+   "name": "CRISPR Therapeutics AG Common Shares",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Biological Products (No Diagnostic Substances)"
+  },
+  {
+   "symbol": "ACGLN",
+   "name": "Arch Capital Group Ltd. Depositary Shares each Representing a 1/1000th Interest in a 4.550% Non-Cumulative Preferred Share Series G",
+   "sector": "Financials",
+   "sub_sector": "Property-Casualty Insurers"
+  },
+  {
+   "symbol": "TEO",
+   "name": "Telecom Argentina SA",
+   "sector": "Communication Services",
+   "sub_sector": "Telecommunications Equipment"
+  },
+  {
+   "symbol": "NAVN",
+   "name": "Navan Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "NIQ",
+   "name": "NIQ Global Intelligence plc Ordinary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Programming Data Processing"
+  },
+  {
+   "symbol": "BB",
+   "name": "BlackBerry Limited Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "DFTX",
+   "name": "Definium Therapeutics Inc. Common Shares",
+   "sector": "Health Care",
+   "sub_sector": "Medicinal Chemicals and Botanical Products"
+  },
+  {
+   "symbol": "MAIN",
+   "name": "Main Street Capital Corporation Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance/Investors Services"
+  },
+  {
+   "symbol": "GRFS",
+   "name": "Grifols S.A. American Depositary Shares",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "MDA",
+   "name": "MDA Space Ltd. Common Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Electronic Components"
+  },
+  {
+   "symbol": "OCTV",
+   "name": "Octave Intelligence plc Class B Ordinary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "IOVA",
+   "name": "Iovance Biotherapeutics Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Biological Products (No Diagnostic Substances)"
+  },
+  {
+   "symbol": "GLNG",
+   "name": "Golar Lng Ltd",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Marine Transportation"
+  },
+  {
+   "symbol": "ERAS",
+   "name": "Erasca Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "HESM",
+   "name": "Hess Midstream LP Class A Representing Limited Partner Interests",
+   "sector": "Energy",
+   "sub_sector": "Oil & Gas Production"
+  },
+  {
+   "symbol": "OMAB",
+   "name": "Grupo Aeroportuario del Centro Norte S.A.B. de C.V. ADS",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Aerospace"
+  },
+  {
+   "symbol": "DNTH",
+   "name": "Dianthus Therapeutics Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "IEP",
+   "name": "Icahn Enterprises L.P. Common Stock",
+   "sector": "Energy",
+   "sub_sector": "Integrated oil Companies"
+  },
+  {
+   "symbol": "ATHS",
+   "name": "Athene Holding Ltd. 7.250% Fixed-Rate Reset Junior Subordinated Debentures due 2064",
+   "sector": "Financials",
+   "sub_sector": "Life Insurance"
+  },
+  {
+   "symbol": "AXTI",
+   "name": "AXT Inc Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Semiconductors"
+  },
+  {
+   "symbol": "GTX",
+   "name": "Garrett Motion Inc. Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Auto Parts:O.E.M."
+  },
+  {
+   "symbol": "MWH",
+   "name": "SOLV Energy Inc. Class A Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Military/Government/Technical"
+  },
+  {
+   "symbol": "SIM",
+   "name": "Grupo Simec S.A.B. de C.V. American Depositary Shares",
+   "sector": "Industrials",
+   "sub_sector": "Steel/Iron Ore"
+  },
+  {
+   "symbol": "WTM",
+   "name": "White Mountains Insurance Group Ltd. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Property-Casualty Insurers"
+  },
+  {
+   "symbol": "MANE",
+   "name": "Veradermics Incorporated Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "VEON",
+   "name": "VEON Ltd. ADS",
+   "sector": "Communication Services",
+   "sub_sector": "Telecommunications Equipment"
+  },
+  {
+   "symbol": "OTF",
+   "name": "Blue Owl Technology Finance Corp. Common Stock",
+   "sector": "",
+   "sub_sector": ""
+  },
+  {
+   "symbol": "HGTY",
+   "name": "Hagerty Inc. Class A Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Specialty Insurers"
+  },
+  {
+   "symbol": "BEPI",
+   "name": "Brookfield BRP Holdings (Canada) Inc. 4.875% Perpetual Subordinated Notes",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "MEOH",
+   "name": "Methanex Corporation Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Major Chemicals"
+  },
+  {
+   "symbol": "CLMT",
+   "name": "Calumet Inc. Common Stock",
+   "sector": "Energy",
+   "sub_sector": "Integrated oil Companies"
+  },
+  {
+   "symbol": "EQPT",
+   "name": "EquipmentShare.com Inc Class A Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Diversified Commercial Services"
+  },
+  {
+   "symbol": "TFSL",
+   "name": "TFS Financial Corporation Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Savings Institutions"
+  },
+  {
+   "symbol": "CIGI",
+   "name": "Colliers International Group Inc. Subordinate Voting Shares",
+   "sector": "Financials",
+   "sub_sector": "Real Estate"
+  },
+  {
+   "symbol": "PRM",
+   "name": "Perimeter Solutions SA Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Major Chemicals"
+  },
+  {
+   "symbol": "HAFN",
+   "name": "Hafnia Limited Common Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Transportation Services"
+  },
+  {
+   "symbol": "UEC",
+   "name": "Uranium Energy Corp. Common Stock",
+   "sector": "Materials",
+   "sub_sector": "Other Metals and Minerals"
+  },
+  {
+   "symbol": "ADPT",
+   "name": "Adaptive Biotechnologies Corporation Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Biological Products (No Diagnostic Substances)"
+  },
+  {
+   "symbol": "GMAB",
+   "name": "Genmab A/S ADS",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "HCXY",
+   "name": "Hercules Capital Inc. 6.25% Notes due 2033",
+   "sector": "Financials",
+   "sub_sector": "Investment Managers"
+  },
+  {
+   "symbol": "DHCNL",
+   "name": "Diversified Healthcare Trust 6.25% Senior Notes Due 2046",
+   "sector": "Real Estate",
+   "sub_sector": "Real Estate Investment Trusts"
+  },
+  {
+   "symbol": "ABCL",
+   "name": "AbCellera Biologics Inc. Common Shares",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "TKC",
+   "name": "Turkcell Iletisim Hizmetleri AS Common Stock",
+   "sector": "Communication Services",
+   "sub_sector": "Telecommunications Equipment"
+  },
+  {
+   "symbol": "HRI",
+   "name": "Herc Holdings Inc. Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Misc Corporate Leasing Services"
+  },
+  {
+   "symbol": "ONDS",
+   "name": "Ondas Inc. Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Radio And Television Broadcasting And Communications Equipment"
+  },
+  {
+   "symbol": "ATAT",
+   "name": "Atour Lifestyle Holdings Limited American Depositary Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Hotels/Resorts"
+  },
+  {
+   "symbol": "MMYT",
+   "name": "MakeMyTrip Limited Ordinary Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Transportation Services"
+  },
+  {
+   "symbol": "BWIN",
+   "name": "The Baldwin Insurance Group Inc. Class A Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Specialty Insurers"
+  },
+  {
+   "symbol": "NNI",
+   "name": "Nelnet Inc. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "HHH",
+   "name": "Howard Hughes Holdings Inc. Common Stock",
+   "sector": "Real Estate",
+   "sub_sector": "Real Estate Investment Trusts"
+  },
+  {
+   "symbol": "KVYO",
+   "name": "Klaviyo Inc. Series A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "OXLCM",
+   "name": "Oxford Lane Capital Corp. Preferred Stock Shares 8.25% Series 2031",
+   "sector": "Financials",
+   "sub_sector": "Investment Managers"
+  },
+  {
+   "symbol": "ALH",
+   "name": "Alliance Laundry Holdings Inc. Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Industrial Machinery/Components"
+  },
+  {
+   "symbol": "CGAU",
+   "name": "Centerra Gold Inc. Common Shares",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "HTFL",
+   "name": "Heartflow Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Medical/Dental Instruments"
+  },
+  {
+   "symbol": "ENO",
+   "name": "Entergy New Orleans LLC First Mortgage Bonds 5.50% Series due April 1 2066",
+   "sector": "Utilities",
+   "sub_sector": "Power Generation"
+  },
+  {
+   "symbol": "OXLCZ",
+   "name": "Oxford Lane Capital Corp. 5.00% Notes due 2027",
+   "sector": "Financials",
+   "sub_sector": "Finance Companies"
+  },
+  {
+   "symbol": "EWTX",
+   "name": "Edgewise Therapeutics Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "STNG",
+   "name": "Scorpio Tankers Inc. Common Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Marine Transportation"
+  },
+  {
+   "symbol": "BIPC",
+   "name": "Brookfield Infrastructure Corporation Brookfield Infrastructure Corporation",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Marine Transportation"
+  },
+  {
+   "symbol": "CAAP",
+   "name": "Corporacion America Airports SA Common Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Aerospace"
+  },
+  {
+   "symbol": "ARX",
+   "name": "Accelerant Holdings Class A Common Shares",
+   "sector": "Financials",
+   "sub_sector": "Specialty Insurers"
+  },
+  {
+   "symbol": "OXLCN",
+   "name": "Oxford Lane Capital Corp. 7.125% Series 2029 Term Preferred Stock",
+   "sector": "Financials",
+   "sub_sector": "Investment Managers"
+  },
+  {
+   "symbol": "BEPH",
+   "name": "Brookfield BRP Holdings (Canada) Inc. 4.625% Perpetual Subordinated Notes",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "CECO",
+   "name": "CECO Environmental Corp. Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Pollution Control Equipment"
+  },
+  {
+   "symbol": "BMA",
+   "name": "Banco Macro S.A.  ADR (representing Ten Class B Common Shares)",
+   "sector": "Financials",
+   "sub_sector": "Commercial Banks"
+  },
+  {
+   "symbol": "DHCNI",
+   "name": "Diversified Healthcare Trust 5.625% Senior Notes due 2042",
+   "sector": "Real Estate",
+   "sub_sector": "Real Estate Investment Trusts"
+  },
+  {
+   "symbol": "PAM",
+   "name": "Pampa Energia S.A.",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "JOYY",
+   "name": "JOYY Inc. American Depositary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "EDP Services"
+  },
+  {
+   "symbol": "FRVO",
+   "name": "Fervo Energy Company Class A common stock",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "COLD",
+   "name": "Americold Realty Trust Inc. Common Stock",
+   "sector": "Real Estate",
+   "sub_sector": "Real Estate Investment Trusts"
+  },
+  {
+   "symbol": "OXLCL",
+   "name": "Oxford Lane Capital Corp. 6.75% Notes due 2031",
+   "sector": "Financials",
+   "sub_sector": "Finance Companies"
+  },
+  {
+   "symbol": "DK",
+   "name": "Delek US Holdings Inc. Common Stock",
+   "sector": "Energy",
+   "sub_sector": "Integrated oil Companies"
+  },
+  {
+   "symbol": "LBTYB",
+   "name": "Liberty Global Ltd. Class B Common Shares",
+   "sector": "Communication Services",
+   "sub_sector": "Cable & Other Pay Television Services"
+  },
+  {
+   "symbol": "OXLCO",
+   "name": "Oxford Lane Capital Corp. Preferred Stock Shares 6.00% Series 2029",
+   "sector": "Financials",
+   "sub_sector": "Investment Managers"
+  },
+  {
+   "symbol": "TNGX",
+   "name": "Tango Therapeutics Inc.",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "DLO",
+   "name": "DLocal Limited Class A Common Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Business Services"
+  },
+  {
+   "symbol": "ACHR",
+   "name": "Archer Aviation Inc. Class A Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Aerospace"
+  },
+  {
+   "symbol": "FLY",
+   "name": "Firefly Aerospace Inc. Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Military/Government/Technical"
+  },
+  {
+   "symbol": "DOO",
+   "name": "BRP Inc. Common Subordinate Voting Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Industrial Specialties"
+  },
+  {
+   "symbol": "LILAP",
+   "name": "Liberty Latin America Ltd. 9.0% Fixed Rate Cumulative Perpetual Redeemable Series A Preference Shares",
+   "sector": "Communication Services",
+   "sub_sector": "Cable & Other Pay Television Services"
+  },
+  {
+   "symbol": "REGCP",
+   "name": "Regency Centers Corporation 6.25% Series A Cumulative Redeemable Preferred Stock",
+   "sector": "Real Estate",
+   "sub_sector": "Real Estate Investment Trusts"
+  },
+  {
+   "symbol": "ELC",
+   "name": "Entergy Louisiana Inc. Collateral Trust Mortgage Bonds 4.875 % Series due September 1 2066",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "PBLS",
+   "name": "Parabilis Medicines Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "FSLY",
+   "name": "Fastly Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "SITE",
+   "name": "SiteOne Landscape Supply Inc. Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Professional and commerical equipment"
+  },
+  {
+   "symbol": "SEB",
+   "name": "Seaboard Corporation Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Farming/Seeds/Milling"
+  },
+  {
+   "symbol": "TLX",
+   "name": "Telix Pharmaceuticals Limited American Depositary Shares",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "RUM",
+   "name": "RUM Group Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Programming Data Processing"
+  },
+  {
+   "symbol": "BWLP",
+   "name": "BW LPG Limited Common Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Transportation Services"
+  },
+  {
+   "symbol": "ERO",
+   "name": "Ero Copper Corp. Common Shares",
+   "sector": "Materials",
+   "sub_sector": "Metal Mining"
+  },
+  {
+   "symbol": "CCC",
+   "name": "CCC Intelligent Solutions Holdings Inc. Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "CELC",
+   "name": "Celcuity Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Medical Specialities"
+  },
+  {
+   "symbol": "TGS",
+   "name": "Transportadora de Gas del Sur SA TGS Common Stock",
+   "sector": "Utilities",
+   "sub_sector": "Natural Gas Distribution"
+  },
+  {
+   "symbol": "SRAD",
+   "name": "Sportradar Group AG Class A Ordinary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Programming Data Processing"
+  },
+  {
+   "symbol": "SUNC",
+   "name": "SunocoCorp LLC Common Units representing limited liability company interests",
+   "sector": "Energy",
+   "sub_sector": "Integrated oil Companies"
+  },
+  {
+   "symbol": "RLAY",
+   "name": "Relay Therapeutics Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Biological Products (No Diagnostic Substances)"
+  },
+  {
+   "symbol": "NWCL",
+   "name": "newcleo plc Ordinary Shares",
+   "sector": "Industrials",
+   "sub_sector": "Metal Fabrications"
+  },
+  {
+   "symbol": "MSGE",
+   "name": "Madison Square Garden Entertainment Corp. Class A Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Services-Misc. Amusement & Recreation"
+  },
+  {
+   "symbol": "AQN",
+   "name": "Algonquin Power & Utilities Corp. Common Shares",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "VKTX",
+   "name": "Viking Therapeutics Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "DTW",
+   "name": "DTE Energy Company 2017 Series E 5.25% Junior Subordinated Debentures due 2077",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "BATRA",
+   "name": "Atlanta Braves Holdings Inc. Series A Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Services-Misc. Amusement & Recreation"
+  },
+  {
+   "symbol": "AYA",
+   "name": "Aya Gold & Silver Inc. Common Shares",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "NP",
+   "name": "Neptune Insurance Holdings Inc. Class A Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Specialty Insurers"
+  },
+  {
+   "symbol": "ALM",
+   "name": "Almonty Industries Inc. Common Shares",
+   "sector": "Materials",
+   "sub_sector": "Other Metals and Minerals"
+  },
+  {
+   "symbol": "BULL",
+   "name": "Webull Corporation Class A Ordinary Shares",
+   "sector": "Financials",
+   "sub_sector": "Investment Bankers/Brokers/Service"
+  },
+  {
+   "symbol": "TENB",
+   "name": "Tenable Holdings Inc. Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "REGCO",
+   "name": "Regency Centers Corporation 5.875% Series B Cumulative Redeemable Preferred Stock",
+   "sector": "Real Estate",
+   "sub_sector": "Real Estate Investment Trusts"
+  },
+  {
+   "symbol": "XXI",
+   "name": "Twenty One Capital Inc. Class A Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "PAY",
+   "name": "Paymentus Holdings Inc. Class A Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Business Services"
+  },
+  {
+   "symbol": "ASBA",
+   "name": "Associated Banc-Corp 6.625% Fixed-Rate Reset Subordinated Notes due 2033",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "SKE",
+   "name": "Skeena Resources Limited Common Shares",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "AMLX",
+   "name": "Amylyx Pharmaceuticals Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "TAC",
+   "name": "TransAlta Corporation Ordinary Shares",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "PLSE",
+   "name": "Pulse Biosciences Inc Common Stock (DE)",
+   "sector": "Health Care",
+   "sub_sector": "Medical/Dental Instruments"
+  },
+  {
+   "symbol": "EE",
+   "name": "Excelerate Energy Inc. Class A Common Stock",
+   "sector": "Utilities",
+   "sub_sector": "Oil/Gas Transmission"
+  },
+  {
+   "symbol": "IRTC",
+   "name": "iRhythm Holdings Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Medical/Dental Instruments"
+  },
+  {
+   "symbol": "WK",
+   "name": "Workiva Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "PHI",
+   "name": "PLDT Inc. Sponsored ADR",
+   "sector": "Communication Services",
+   "sub_sector": "Telecommunications Equipment"
+  },
+  {
+   "symbol": "IDYA",
+   "name": "IDEAYA Biosciences Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "IOND",
+   "name": "Ionic Digital Inc. Class A Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "USAC",
+   "name": "USA Compression Partners LP Common Units Representing Limited Partner Interests",
+   "sector": "Utilities",
+   "sub_sector": "Natural Gas Distribution"
+  },
+  {
+   "symbol": "UNMA",
+   "name": "Unum Group 6.250% Junior Subordinated Notes due 2058",
+   "sector": "Financials",
+   "sub_sector": "Accident &Health Insurance"
+  },
+  {
+   "symbol": "TRMD",
+   "name": "TORM plc Class A Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Marine Transportation"
+  },
+  {
+   "symbol": "LEGN",
+   "name": "Legend Biotech Corporation American Depositary Shares",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "ARIS",
+   "name": "Aris Mining Corporation Common Shares",
+   "sector": "",
+   "sub_sector": ""
+  },
+  {
+   "symbol": "TARS",
+   "name": "Tarsus Pharmaceuticals Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Biological Products (No Diagnostic Substances)"
+  },
+  {
+   "symbol": "BELFB",
+   "name": "Bel Fuse Inc. Class B Common Stock",
+   "sector": "",
+   "sub_sector": ""
+  },
+  {
+   "symbol": "WBI",
+   "name": "WaterBridge Infrastructure LLC Class A Shares Representing Limited Liability Company Interests",
+   "sector": "Energy",
+   "sub_sector": "Oilfield Services/Equipment"
+  },
+  {
+   "symbol": "XENE",
+   "name": "Xenon Pharmaceuticals Inc. Common Shares",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "CII",
+   "name": "BlackRock Enhanced Large Cap Core Fund Inc. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Investment Bankers/Brokers/Service"
+  },
+  {
+   "symbol": "MANU",
+   "name": "Manchester United Ltd. Class A Ordinary Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Services-Misc. Amusement & Recreation"
+  },
+  {
+   "symbol": "DHT",
+   "name": "DHT Holdings Inc.",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Marine Transportation"
+  },
+  {
+   "symbol": "BATRK",
+   "name": "Atlanta Braves Holdings Inc. Series C Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Services-Misc. Amusement & Recreation"
+  },
+  {
+   "symbol": "LUNR",
+   "name": "Intuitive Machines Inc. Class A Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Industrial Machinery/Components"
+  },
+  {
+   "symbol": "ARQT",
+   "name": "Arcutis Biotherapeutics Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "ZIM",
+   "name": "ZIM Integrated Shipping Services Ltd. Ordinary Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Marine Transportation"
+  },
+  {
+   "symbol": "FSM",
+   "name": "Fortuna Mining Corp. Common Shares",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "SMR",
+   "name": "NuScale Power Corporation Class A Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Metal Fabrications"
+  },
+  {
+   "symbol": "LMND",
+   "name": "Lemonade Inc. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Property-Casualty Insurers"
+  },
+  {
+   "symbol": "MNDY",
+   "name": "monday.com Ltd. Ordinary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "ZGN",
+   "name": "Ermenegildo Zegna N.V. Ordinary Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Apparel"
+  },
+  {
+   "symbol": "PDI",
+   "name": "PIMCO Dynamic Income Fund Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Trusts Except Educational Religious and Charitable"
+  },
+  {
+   "symbol": "GPGI",
+   "name": "GPGI Inc. Class A Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "ELVN",
+   "name": "Enliven Therapeutics Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "MIAX",
+   "name": "Miami International Holdings Inc. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Investment Bankers/Brokers/Service"
+  },
+  {
+   "symbol": "MGNI",
+   "name": "Magnite Inc. Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Programming Data Processing"
+  },
+  {
+   "symbol": "DNLI",
+   "name": "Denali Therapeutics Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Biological Products (No Diagnostic Substances)"
+  },
+  {
+   "symbol": "CDNA",
+   "name": "CareDx Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Medical Specialities"
+  },
+  {
+   "symbol": "KEN",
+   "name": "Kenon Holdings Ltd. Ordinary Shares",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "CSTM",
+   "name": "Constellium SE Ordinary Shares (France)",
+   "sector": "Industrials",
+   "sub_sector": "Metal Fabrications"
+  },
+  {
+   "symbol": "NTRSO",
+   "name": "Northern Trust Corporation Depositary Shares Each Representing a 1/1000th Interest in a Share of Series E Non-Cumulative Perpetual Preferred Stock",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "TNK",
+   "name": "Teekay Tankers Ltd.",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Marine Transportation"
+  },
+  {
+   "symbol": "FULTP",
+   "name": "Fulton Financial Corporation Depositary Shares Each Representing a 1/40th Interest in a Share of Fixed Rate Non-Cumulative Perpetual Preferred Stock Series A",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "PFSI",
+   "name": "PennyMac Financial Services Inc. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "MCHB",
+   "name": "Mechanics Bancorp Class A Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Major Banks"
+  },
+  {
+   "symbol": "AB",
+   "name": "AllianceBernstein Holding L.P.  Units",
+   "sector": "Financials",
+   "sub_sector": "Investment Managers"
+  },
+  {
+   "symbol": "FRSH",
+   "name": "Freshworks Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "SBLK",
+   "name": "Star Bulk Carriers Corp. Common Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Marine Transportation"
+  },
+  {
+   "symbol": "LION",
+   "name": "Lionsgate Studios Corp Common Shares",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Movies/Entertainment"
+  },
+  {
+   "symbol": "CSQ",
+   "name": "Calamos Strategic Total Return Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance Companies"
+  },
+  {
+   "symbol": "GBDC",
+   "name": "Golub Capital BDC Inc. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "TGB",
+   "name": "Trekor Metals Limited Common Shares",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "AEHR",
+   "name": "Aehr Test Systems Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Electrical Products"
+  },
+  {
+   "symbol": "LBTYA",
+   "name": "Liberty Global Ltd. Class A Common Shares",
+   "sector": "Communication Services",
+   "sub_sector": "Cable & Other Pay Television Services"
+  },
+  {
+   "symbol": "BTE",
+   "name": "Baytex Energy Corp Common Shares",
+   "sector": "Energy",
+   "sub_sector": "Oil & Gas Production"
+  },
+  {
+   "symbol": "ATKR",
+   "name": "Atkore Inc. Common Stock",
+   "sector": "",
+   "sub_sector": "Industrial Machinery/Components"
+  },
+  {
+   "symbol": "ARLP",
+   "name": "Alliance Resource Partners L.P. Common Units representing Limited Partners Interests",
+   "sector": "Energy",
+   "sub_sector": "Coal Mining"
+  },
+  {
+   "symbol": "DTG",
+   "name": "DTE Energy Company 2021 Series E 4.375% Junior Subordinated Debentures",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "INFQ",
+   "name": "Infleqtion Inc. Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "EDP Services"
+  },
+  {
+   "symbol": "HTGC",
+   "name": "Hercules Capital Inc. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Investment Managers"
+  },
+  {
+   "symbol": "SLNHP",
+   "name": "Soluna Holdings Inc 9.0% Series A Cumulative Perpetual Preferred Stock",
+   "sector": "Information Technology",
+   "sub_sector": "EDP Services"
+  },
+  {
+   "symbol": "DTB",
+   "name": "DTE Energy Company 2020 Series G 4.375% Junior Subordinated Debentures due 2080",
+   "sector": "Utilities",
+   "sub_sector": "Electric Utilities: Central"
+  },
+  {
+   "symbol": "CORZW",
+   "name": "Core Scientific Inc. Tranche 1 Warrants",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "LBTYK",
+   "name": "Liberty Global Ltd. Class C Common Shares",
+   "sector": "Communication Services",
+   "sub_sector": "Cable & Other Pay Television Services"
+  },
+  {
+   "symbol": "SII",
+   "name": "Sprott Inc. Common Shares",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "ECO",
+   "name": "Okeanis Eco Tankers Corp. Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Marine Transportation"
+  },
+  {
+   "symbol": "FSK",
+   "name": "FS KKR Capital Corp. Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Investment Managers"
+  },
+  {
+   "symbol": "IMAX",
+   "name": "Imax Corporation Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Industrial Machinery/Components"
+  },
+  {
+   "symbol": "BSM",
+   "name": "Black Stone Minerals L.P. Common units representing limited partner interests",
+   "sector": "Energy",
+   "sub_sector": "Oil & Gas Production"
+  },
+  {
+   "symbol": "SA",
+   "name": "Seabridge Gold Inc. Common Shares New",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "RWTN",
+   "name": "Redwood Trust Inc. 9.125% Senior Notes Due 2029",
+   "sector": "Real Estate",
+   "sub_sector": "Real Estate Investment Trusts"
+  },
+  {
+   "symbol": "RGC",
+   "name": "Regencell Bioscience Holdings Limited Ordinary Shares",
+   "sector": "Health Care",
+   "sub_sector": "Medicinal Chemicals and Botanical Products"
+  },
+  {
+   "symbol": "NVTS",
+   "name": "Navitas Semiconductor Corporation Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Semiconductors"
+  },
+  {
+   "symbol": "DYN",
+   "name": "Dyne Therapeutics Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "AMBA",
+   "name": "Ambarella Inc. Ordinary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Semiconductors"
+  },
+  {
+   "symbol": "FGN",
+   "name": "F&G Annuities & Life Inc. 7.950% Senior Notes due 2053",
+   "sector": "Financials",
+   "sub_sector": "Life Insurance"
+  },
+  {
+   "symbol": "PONY",
+   "name": "Pony AI Inc. American Depositary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "EDP Services"
+  },
+  {
+   "symbol": "NESR",
+   "name": "National Energy Services Reunited Corp Ordinary Shares",
+   "sector": "Energy",
+   "sub_sector": "Oilfield Services/Equipment"
+  },
+  {
+   "symbol": "LPL",
+   "name": "LG Display Co Ltd AMERICAN DEPOSITORY SHARES",
+   "sector": "Information Technology",
+   "sub_sector": "Industrial Machinery/Components"
+  },
+  {
+   "symbol": "BTDR",
+   "name": "Bitdeer Technologies Group Class A Ordinary Shares",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "DBRG",
+   "name": "DigitalBridge Group Inc.",
+   "sector": "Real Estate",
+   "sub_sector": "Real Estate Investment Trusts"
+  },
+  {
+   "symbol": "PTRN",
+   "name": "Pattern Group Inc. Series A Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Catalog/Specialty Distribution"
+  },
+  {
+   "symbol": "ATRC",
+   "name": "AtriCure Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Medical/Dental Instruments"
+  },
+  {
+   "symbol": "CBZ",
+   "name": "CBIZ Inc. Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Business Services"
+  },
+  {
+   "symbol": "KYIV",
+   "name": "Kyivstar Group Ltd. Common Shares",
+   "sector": "Communication Services",
+   "sub_sector": "Telecommunications Equipment"
+  },
+  {
+   "symbol": "NAN",
+   "name": "Nuveen New York Quality Municipal Income Fund Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Investment Managers"
+  },
+  {
+   "symbol": "OUST",
+   "name": "Ouster Inc. Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Industrial Machinery/Components"
+  },
+  {
+   "symbol": "AAUC",
+   "name": "Allied Gold Corporation Common Shares",
+   "sector": "",
+   "sub_sector": ""
+  },
+  {
+   "symbol": "NG",
+   "name": "Novagold Resources Inc.",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "WIX",
+   "name": "Wix.com Ltd. Ordinary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Programming Data Processing"
+  },
+  {
+   "symbol": "TNET",
+   "name": "TriNet Group Inc. Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Business Services"
+  },
+  {
+   "symbol": "ATRO",
+   "name": "Astronics Corporation Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Military/Government/Technical"
+  },
+  {
+   "symbol": "RWTO",
+   "name": "Redwood Trust Inc. 9.00% Senior Notes Due 2029",
+   "sector": "Real Estate",
+   "sub_sector": "Real Estate Investment Trusts"
+  },
+  {
+   "symbol": "BELFA",
+   "name": "Bel Fuse Inc. Class A Common Stock",
+   "sector": "",
+   "sub_sector": ""
+  },
+  {
+   "symbol": "VTMX",
+   "name": "Corporacion Inmobiliaria Vesta S.A.B de C.V. American Depositary Shares each representing ten (10) Common Shares",
+   "sector": "Financials",
+   "sub_sector": "Real Estate"
+  },
+  {
+   "symbol": "AD",
+   "name": "Array Digital Infrastructure Inc. Common Shares",
+   "sector": "Communication Services",
+   "sub_sector": "Telecommunications Equipment"
+  },
+  {
+   "symbol": "AVPT",
+   "name": "AvePoint Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "CHRN",
+   "name": "ChronoScale Holdings Corporation Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Industrial Machinery/Components"
+  },
+  {
+   "symbol": "EFXT",
+   "name": "Enerflex Ltd Common Shares",
+   "sector": "Industrials",
+   "sub_sector": "Industrial Machinery/Components"
+  },
+  {
+   "symbol": "ZLAB",
+   "name": "Zai Lab Limited American Depositary Shares",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "PURR",
+   "name": "Hyperliquid Strategies Inc Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "DKL",
+   "name": "Delek Logistics Partners L.P. Common Units representing Limited Partner Interests",
+   "sector": "Energy",
+   "sub_sector": "Natural Gas Distribution"
+  },
+  {
+   "symbol": "SDRL",
+   "name": "Seadrill Limited Common Shares",
+   "sector": "Energy",
+   "sub_sector": "Oil & Gas Production"
+  },
+  {
+   "symbol": "QS",
+   "name": "QuantumScape Corporation Class A Common Stock",
+   "sector": "",
+   "sub_sector": "Industrial Machinery/Components"
+  },
+  {
+   "symbol": "EROK",
+   "name": "EagleRock Land LLC Class A shares representing limited liability company interests",
+   "sector": "Energy",
+   "sub_sector": "Oil & Gas Production"
+  },
+  {
+   "symbol": "ASST",
+   "name": "Strive Inc. Class A Common Stock",
+   "sector": "Financials",
+   "sub_sector": "Finance: Consumer Services"
+  },
+  {
+   "symbol": "DX",
+   "name": "Dynex Capital Inc. Common Stock",
+   "sector": "Real Estate",
+   "sub_sector": "Real Estate Investment Trusts"
+  },
+  {
+   "symbol": "IHS",
+   "name": "IHS Holding Limited Ordinary Shares",
+   "sector": "Communication Services",
+   "sub_sector": "Telecommunications Equipment"
+  },
+  {
+   "symbol": "MGRC",
+   "name": "McGrath RentCorp Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Diversified Commercial Services"
+  },
+  {
+   "symbol": "SOUN",
+   "name": "SoundHound AI Inc Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "RDW",
+   "name": "Redwire Corporation Common Stock",
+   "sector": "Industrials",
+   "sub_sector": "Military/Government/Technical"
+  },
+  {
+   "symbol": "POWWP",
+   "name": "Outdoor Holding Company 8.75% Series A Cumulative Redeemable Perpetual Preferred Stock",
+   "sector": "Industrials",
+   "sub_sector": "Ordnance And Accessories"
+  },
+  {
+   "symbol": "PGEN",
+   "name": "Precigen Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  },
+  {
+   "symbol": "DAC",
+   "name": "Danaos Corporation Common Stock",
+   "sector": "Consumer Discretionary",
+   "sub_sector": "Marine Transportation"
+  },
+  {
+   "symbol": "FTAIM",
+   "name": "FTAI Aviation Ltd. 9.500% Fixed-Rate Reset Series D Cumulative Perpetual Redeemable Preferred Shares",
+   "sector": "Industrials",
+   "sub_sector": "Misc Corporate Leasing Services"
+  },
+  {
+   "symbol": "HG",
+   "name": "Hamilton Insurance Group Ltd. Class B Common Shares",
+   "sector": "Financials",
+   "sub_sector": "Property-Casualty Insurers"
+  },
+  {
+   "symbol": "UUUU",
+   "name": "Energy Fuels Inc Ordinary Shares (Canada)",
+   "sector": "Industrials",
+   "sub_sector": "Mining & Quarrying of Nonmetallic Minerals (No Fuels)"
+  },
+  {
+   "symbol": "KC",
+   "name": "Kingsoft Cloud Holdings Limited American Depositary Shares",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "PPTA",
+   "name": "Perpetua Resources Corp. Common Shares",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "FRMI",
+   "name": "Fermi Inc. Common Stock",
+   "sector": "Real Estate",
+   "sub_sector": "Real Estate Investment Trusts"
+  },
+  {
+   "symbol": "INTA",
+   "name": "Intapp Inc. Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "CSQR",
+   "name": "Csquare Inc. Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Programming Data Processing"
+  },
+  {
+   "symbol": "EXK",
+   "name": "Endeavour Silver Corporation Ordinary Shares (Canada)",
+   "sector": "Materials",
+   "sub_sector": "Precious Metals"
+  },
+  {
+   "symbol": "BRZE",
+   "name": "Braze Inc. Class A Common Stock",
+   "sector": "Information Technology",
+   "sub_sector": "Computer Software: Prepackaged Software"
+  },
+  {
+   "symbol": "EROC",
+   "name": "ERock Inc. Class A Common Stock",
+   "sector": "Energy",
+   "sub_sector": "Industrial Machinery/Components"
+  },
+  {
+   "symbol": "PLUG",
+   "name": "Plug Power Inc. Common Stock",
+   "sector": "Energy",
+   "sub_sector": "Industrial Machinery/Components"
+  },
+  {
+   "symbol": "KRSA",
+   "name": "Korsana Biosciences Inc. Common Stock",
+   "sector": "Health Care",
+   "sub_sector": "Biotechnology: Pharmaceutical Preparations"
+  }
+ ]
+}
