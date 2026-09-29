@@ -11,7 +11,14 @@
     "smoke": "node render-smoke.mjs",
     "test:topics": "node scripts/topic-check.mjs",
     "prebuild": "node scripts/prebuild.mjs",
-    "lint:hooks": "eslint --no-eslintrc -c .eslintrc-hooks.json \"src/**/*.tsx\""
+    "lint:hooks": "eslint --no-eslintrc -c .eslintrc-hooks.json \"src/**/*.tsx\"",
+    "test:render": "node scripts/render-check.mjs",
+    "test:visual": "node scripts/visual-check.mjs",
+    "test:visual:settings": "node scripts/visual-check-settings.mjs",
+    "test:visual:market": "node scripts/visual-check-market.mjs",
+    "test:visual:intel": "node scripts/visual-check-intel.mjs",
+    "test:visual:backtest": "node scripts/visual-check-backtest.mjs",
+    "test:visual:optimize": "node scripts/visual-check-optimize.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",
