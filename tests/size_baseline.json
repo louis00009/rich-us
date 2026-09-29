@@ -1,0 +1,21 @@
+{
+  "backend/app/ai_analyst.py": 775,
+  "backend/app/brokers/ibkr.py": 1804,
+  "backend/app/data_provider.py": 1311,
+  "backend/app/engine/live.py": 1151,
+  "backend/app/engine/optimizer.py": 725,
+  "backend/app/engine/stream.py": 1062,
+  "backend/app/intel.py": 1916,
+  "backend/app/movers.py": 691,
+  "backend/app/rankings.py": 732,
+  "backend/app/strategies/builtin_advanced.py": 678,
+  "frontend/src/components/CandleChart.tsx": 677,
+  "frontend/src/components/charts.tsx": 710,
+  "frontend/src/components/rankings/MoversMonitor.tsx": 483,
+  "frontend/src/components/ui.tsx": 709,
+  "frontend/src/lib/rankingColumns.ts": 408,
+  "frontend/src/pages/AICopilot.tsx": 627,
+  "frontend/src/pages/LiveTrading.tsx": 1180,
+  "frontend/src/pages/Risk.tsx": 622,
+  "frontend/src/pages/Settings.tsx": 854
+}
