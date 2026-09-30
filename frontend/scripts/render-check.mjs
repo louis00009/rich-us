@@ -28,8 +28,8 @@ const PAGES = [
   {
     name: 'Rankings',
     entry: `export { default as Page } from ${JSON.stringify(src('pages/Rankings.tsx'))}
-export { ToastProvider } from ${JSON.stringify(src('components/ui.tsx'))}
-export { DEFAULT_VISIBLE, RANKING_COLUMNS } from ${JSON.stringify(src('lib/rankingColumns.ts'))}
+export { ToastProvider } from ${JSON.stringify(src('components/ui/index.ts'))}
+export { DEFAULT_VISIBLE, RANKING_COLUMNS } from ${JSON.stringify(src('lib/rankingColumns/index.ts'))}
 `,
     // 渲染成功后必须出现在 HTML 里的关键内容
     expect: [
@@ -124,7 +124,7 @@ export { DEFAULT_VISIBLE, RANKING_COLUMNS } from ${JSON.stringify(src('lib/ranki
     // AI 助手是「全平台接入点」的公共 UI —— 它自己白屏就等于所有接入点全废
     name: 'AIAssist',
     entry: `export { default as Page } from ${JSON.stringify(src('components/AIAssist.tsx'))}
-export { ToastProvider } from ${JSON.stringify(src('components/ui.tsx'))}
+export { ToastProvider } from ${JSON.stringify(src('components/ui/index.ts'))}
 `,
     expect: ['AI 解读', '生成 AI 解读'],
     extra: ({ html, check }) => {
@@ -138,7 +138,7 @@ export { ToastProvider } from ${JSON.stringify(src('components/ui.tsx'))}
     // 同时它承载了「术语必须能悬停解释」这个用户需求，所以把术语覆盖面也做成断言。
     name: 'Backtest',
     entry: `export { default as Page } from ${JSON.stringify(src('pages/Backtest.tsx'))}
-export { ToastProvider } from ${JSON.stringify(src('components/ui.tsx'))}
+export { ToastProvider } from ${JSON.stringify(src('components/ui/index.ts'))}
 export { GLOSSARY } from ${JSON.stringify(src('components/terms/index.ts'))}
 export { BEGINNER_STRATEGIES, SYMBOL_PRESETS, BENCHMARK_PRESETS, PERIOD_PRESETS, RECOMMENDED } from ${JSON.stringify(src('components/backtest/presets.ts'))}
 export { summarizeResult } from ${JSON.stringify(src('components/backtest/PlainSummary.tsx'))}
@@ -208,9 +208,18 @@ export { summarizeResult } from ${JSON.stringify(src('components/backtest/PlainS
       // 写错的后果是「按钮点下去策略下拉框没反应」，界面上毫无报错。
       const backendKeys = new Set()
       const stratDir = join(root, '..', 'backend', 'app', 'strategies')
-      for (const f of readdirSync(stratDir)) {
-        if (!/^builtin.*\.py$/.test(f)) continue
-        const s = readFileSync(join(stratDir, f), 'utf8')
+      // 递归扫描：builtin_advanced.py 已拆为 strategies/advanced/ 包（09-30），
+      // 策略 key 定义全在子目录里，只扫顶层会漏 → 断言静默放过写错的 key。
+      const scanStratFiles = (dir) => {
+        let out = []
+        for (const f of readdirSync(dir, { withFileTypes: true })) {
+          if (f.isDirectory()) out = out.concat(scanStratFiles(join(dir, f.name)))
+          else if (f.name.endsWith('.py') && (/^builtin/.test(f.name) || dir !== stratDir)) out.push(join(dir, f.name))
+        }
+        return out
+      }
+      for (const p of scanStratFiles(stratDir)) {
+        const s = readFileSync(p, 'utf8')
         for (const m of s.matchAll(/^\s*key\s*=\s*"([a-z0-9_]+)"/gm)) backendKeys.add(m[1])
       }
       check(backendKeys.size >= 20, `从后端策略文件解析出策略 key（${backendKeys.size} 个）`)
@@ -283,7 +292,7 @@ export { summarizeResult } from ${JSON.stringify(src('components/backtest/PlainS
     // 同时它的核心判断（有没有打赢等权基准）刚被抽成纯函数，必须直接断言。
     name: 'Optimize',
     entry: `export { default as Page } from ${JSON.stringify(src('pages/Optimize.tsx'))}
-export { ToastProvider } from ${JSON.stringify(src('components/ui.tsx'))}
+export { ToastProvider } from ${JSON.stringify(src('components/ui/index.ts'))}
 export { GLOSSARY } from ${JSON.stringify(src('components/terms/index.ts'))}
 export { summarizeOptimize } from ${JSON.stringify(src('components/optimize/PlainSummary.tsx'))}
 export { POOL_PRESETS, OBJECTIVE_PRESETS, PERIOD_PRESETS, RECOMMENDED } from ${JSON.stringify(src('components/optimize/presets.ts'))}
@@ -523,7 +532,13 @@ const SRC_FILES = [
   // （拆分最容易漏的就是「新文件不在检查清单里」—— 于是它里面的文案再没人管）。
   'src/components/rankings/FilterBar.tsx',
   'src/components/rankings/PoolAiReview.tsx',
-  'src/lib/rankingColumns.ts',
+  // ⚠️ `lib/rankingColumns.ts` 已拆成 `lib/rankingColumns/` 目录（铁律 9）——
+  //    清单必须跟着走，否则 readFileSync 会直接抛错，整个文案卫生检查崩掉。
+  'src/lib/rankingColumns/index.ts',
+  'src/lib/rankingColumns/types.ts',
+  'src/lib/rankingColumns/base.ts',
+  'src/lib/rankingColumns/quote.ts',
+  'src/lib/rankingColumns/technical.ts',
   // 术语词典（2026-09-29 从 components/backtest/ 提升为 components/terms/ ——
   // 回测页与组合优化页共用同一本词典，优化页去 import backtest/ 下的东西是反向依赖）。
   // 术语气泡文案同样是纯文本，写了 `**强调**` 会在气泡里原样显示星号，
@@ -554,6 +569,15 @@ const SRC_FILES = [
   'src/components/optimize/SaveModal.tsx',
   'src/components/optimize/types.ts',
   'src/components/optimize/presets.ts',
+  // Batch C（2026-09-29 铁律 9 拆分）新 UI 片段：文案卫生同样适用
+  'src/components/risk/tabs.tsx',
+  'src/components/copilot/ChatPanel.tsx',
+  'src/components/copilot/LevelsCard.tsx',
+  'src/components/settings/types.ts',
+  'src/components/settings/BrokerTab.tsx',
+  'src/components/settings/AiSecurityTabs.tsx',
+  'src/components/live/EngineTab.tsx',
+  'src/components/live/RightRail.tsx',
 ]
 for (const rel of SRC_FILES) {
   const raw = readFileSync(join(root, rel), 'utf8')
@@ -614,11 +638,16 @@ const AI_POINTS = [
   // 同时补一条「页面确实渲染了结果区」，避免拆完两边都断链却无人发现。
   ['src/pages/Optimize.tsx', '<OptimizeResultPanel'],
   ['src/components/optimize/ResultPanel.tsx', 'task="optimize_review"'],
-  ['src/pages/Risk.tsx', 'task="risk_review"'],
+  // Batch C 拆分：risk_review 面板随敞口 tab 搬进 components/risk/tabs.tsx —— 断言跟着走，
+  // 同时补一条「页面确实挂载了承载它的组件」，避免拆完两边都断链却无人发现。
+  ['src/components/risk/tabs.tsx', 'task="risk_review"'],
+  ['src/pages/Risk.tsx', '<ExposureTab'],
   ['src/pages/Portfolio.tsx', 'task="portfolio_review"'],
   ['src/pages/Dashboard.tsx', 'task="market_briefing"'],
   ['src/pages/AIOps.tsx', '<OrderAiDiagnose'],
-  ['src/pages/LiveTrading.tsx', '<OrderAiDiagnose'],
+  // Batch C 拆分：订单流水（含 AI 诊断入口）搬进 components/live/RightRail.tsx —— 断言跟着走。
+  ['src/components/live/RightRail.tsx', '<OrderAiDiagnose'],
+  ['src/pages/LiveTrading.tsx', '<RightRail'],
   ['src/pages/Strategies.tsx', '<StrategyAiDraft'],
   // 榜单页的两个新接入点：多选批量分析 + 智能选股
   ['src/pages/Rankings.tsx', '<SelectionToolbar'],
