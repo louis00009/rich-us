@@ -13,6 +13,8 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CorrelationMatrix, HBar, ScoreGauge } from '../components/charts'
+import { ChatPanel } from '../components/copilot/ChatPanel'
+import { LevelsCard } from '../components/copilot/LevelsCard'
 import {
   Alert,
   Badge,
@@ -58,8 +60,7 @@ export default function AICopilot() {
   useEffect(() => {
     api.get<{ items: any[] }>('/watchlist').then((r) => setWatch(r.items || [])).catch(() => {})
   }, [])
-  const toggleSymbol = (sym: string) => {
-    const list = symbols.split(',').map((s) => s.trim()).filter(Boolean)
+  const toggleSymbol = (sym: string) => {    const list = symbols.split(',').map((s) => s.trim()).filter(Boolean)
     const i = list.indexOf(sym)
     if (i >= 0) list.splice(i, 1)
     else if (list.length < 12) list.push(sym)
@@ -92,11 +93,6 @@ export default function AICopilot() {
     }
   }
 
-  const [chatInput, setChatInput] = useState('')
-  const [chat, setChat] = useState<{ role: string; content: string }[]>([])
-  const [chatLoading, setChatLoading] = useState(false)
-  const chatEnd = useRef<HTMLDivElement>(null)
-
   useEffect(() => {
     api
       .get<{ llm_configured: boolean; extra_models?: string[] }>('/ai/status')
@@ -106,10 +102,6 @@ export default function AICopilot() {
       })
       .catch(() => {})
   }, [])
-
-  useEffect(() => {
-    chatEnd.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [chat])
 
   const analyzeSeqRef = useRef(0)
 
@@ -138,26 +130,6 @@ export default function AICopilot() {
       toast('error', e?.message || '分析失败')
     } finally {
       if (seq === analyzeSeqRef.current) setLoading(false)
-    }
-  }
-
-  const sendChat = async () => {
-    if (!chatInput.trim()) return
-    const msg = chatInput.trim()
-    setChat((c) => [...c, { role: 'user', content: msg }])
-    setChatInput('')
-    setChatLoading(true)
-    try {
-      const r = await api.post<any>('/ai/chat', {
-        message: msg,
-        context_symbols: symbols.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 6),
-        history: chat.slice(-6),
-      })
-      setChat((c) => [...c, { role: 'assistant', content: r.reply }])
-    } catch (e: any) {
-      setChat((c) => [...c, { role: 'assistant', content: `出错：${e?.message || '请求失败'}` }])
-    } finally {
-      setChatLoading(false)
     }
   }
 
@@ -384,59 +356,7 @@ export default function AICopilot() {
                 </Card>
 
                 {/* 关键价位 */}
-                <Card title="关键价位" subtitle="支撑取低于现价、阻力取高于现价的有效结构位">
-                  <div className="grid gap-5 sm:grid-cols-2">
-                    <div>
-                      <div className="mb-2 flex items-center gap-2">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-emerald-600">支撑位</span>
-                        <div className="h-px flex-1 bg-emerald-100" />
-                      </div>
-                      <div className="space-y-2">
-                        {active.levels?.支撑?.length ? (
-                          active.levels.支撑.map((v, i) => (
-                            <div key={i} className="flex items-center justify-between rounded-lg border border-emerald-100 bg-emerald-50/50 px-3 py-2">
-                              <span className="text-xs text-slate-500">S{i + 1}</span>
-                              <span className="num text-sm font-semibold text-emerald-700">{fmtNum(v, 2)}</span>
-                              <span className="num text-xs text-slate-500">
-                                {/* P3：旧实现直接除以 active.price —— 价格为 0 时输出
-                                    "Infinity%" / "NaN%"。这里显式兜底。 */}
-                                {active.price
-                                  ? `${(((v - active.price) / active.price) * 100).toFixed(2)}%`
-                                  : '—'}
-                              </span>
-                            </div>
-                          ))
-                        ) : (
-                          <p className="text-xs text-slate-400">现价下方未识别到有效支撑</p>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="mb-2 flex items-center gap-2">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-rose-600">阻力位</span>
-                        <div className="h-px flex-1 bg-rose-100" />
-                      </div>
-                      <div className="space-y-2">
-                        {active.levels?.阻力?.length ? (
-                          active.levels.阻力.map((v, i) => (
-                            <div key={i} className="flex items-center justify-between rounded-lg border border-rose-100 bg-rose-50/50 px-3 py-2">
-                              <span className="text-xs text-slate-500">R{i + 1}</span>
-                              <span className="num text-sm font-semibold text-rose-700">{fmtNum(v, 2)}</span>
-                              <span className="num text-xs text-slate-500">
-                                {/* P3：同支撑位 —— 价格为 0 时不得输出 Infinity/NaN */}
-                                {active.price
-                                  ? `${(((v - active.price) / active.price) * 100).toFixed(2)}%`
-                                  : '—'}
-                              </span>
-                            </div>
-                          ))
-                        ) : (
-                          <p className="text-xs text-slate-400">现价上方未识别到有效阻力</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
+                <LevelsCard active={active} />
 
                 {/* 策略匹配 */}
                 <Card title="适配策略推荐" subtitle="依据当前市场状态从内置 28 个策略中筛选">
@@ -554,44 +474,8 @@ export default function AICopilot() {
                   </>
                 )}
 
-                {/* 对话 */}
-                <Card
-                  title={
-                    <span className="flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4" />追问
-                    </span>
-                  }
-                  subtitle="本地引擎模式下为规则化应答；配置 LLM 后可自由问答"
-                >
-                  <div className="mb-3 max-h-72 space-y-2 overflow-y-auto">
-                    {chat.length === 0 && (
-                      <p className="text-xs text-slate-400">
-                        试试问：「当前波动率适合多大仓位？」「如果跌破第一支撑该怎么办？」
-                      </p>
-                    )}
-                    {chat.map((m, i) => (
-                      <div
-                        key={i}
-                        className={`rounded-lg px-3 py-2 text-xs leading-relaxed ${
-                          m.role === 'user' ? 'ml-8 bg-brand-50 text-slate-700' : 'mr-4 bg-slate-50 text-slate-700'
-                        }`}
-                      >
-                        <div className="whitespace-pre-wrap">{m.content}</div>
-                      </div>
-                    ))}
-                    {chatLoading && <Loading label="思考中…" className="py-3" />}
-                    <div ref={chatEnd} />
-                  </div>
-                  <div className="flex gap-2">
-                    <Input
-                      value={chatInput}
-                      onChange={(e) => setChatInput(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendChat()}
-                      placeholder="输入你的问题…"
-                    />
-                    <Button variant="primary" onClick={sendChat} loading={chatLoading} icon={<Send className="h-3.5 w-3.5" />} />
-                  </div>
-                </Card>
+                {/* 对话（状态自包含于子组件，仅传入标的上下文） */}
+                <ChatPanel symbols={symbols} />
 
                 <Card title="引擎说明">
                   <div className="space-y-2.5 text-xs text-slate-600">
