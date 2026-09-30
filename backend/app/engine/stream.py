@@ -42,373 +42,49 @@
 推送路径（`push`）完全无锁：读字典 + 更新对象字段 + 遍历订阅者，
 每步都是 GIL 下的原子操作，因此可以从 IB 事件线程直接高频调用。
 只有「订阅生命周期」（新增/释放标的）才会拿锁，那是一条低频路径。
+
+FILE_SIZE_DEBT Batch E-3：数据类型与工具（SymbolState / Subscriber / HubStats /
+tick_from_quote 等）拆至 `stream_types.py`，旧 import 路径经 re-export 保持不变；
+轮询线程（_poller/_cycle/_try_stream）与报价查询（quotes/_fetch_now/refresh）
+分别拆至 `stream_poll.py` / `stream_quotes.py` 的 mixin。
 """
 from __future__ import annotations
 
 import asyncio
 import threading
 import time
-from collections import deque
-from dataclasses import dataclass
 from typing import Any, Callable
 
 from ..brokers.base import Tick
 from . import latency as _lat
+from .stream_types import (  # noqa: F401  re-export 保持旧 import 路径
+    MODE_LABELS,
+    MODE_OFFLINE,
+    MODE_SNAPSHOT,
+    MODE_STREAM,
+    MODE_SYNTHETIC,
+    SOURCE_STREAM,
+    HubStats,
+    Subscriber,
+    SymbolState,
+    _DOWNGRADE_AFTER_STALE,
+    _iso_now,
+    _num,
+    _price,
+    tick_from_quote,
+)
+from .stream_poll import _PollMixin
+from .stream_quotes import _QuoteMixin
 
 # 行情年龄计算含多次 strptime，较贵（µs 级）；在热路径上按 1/64 采样，
 # 分布形状不会失真，但不会拖慢推送本身。
 _AGE_SAMPLE_MASK = 63
 
-# ----------------------------------------------------------------------
-# 行情模式
-# ----------------------------------------------------------------------
-MODE_STREAM = "stream"
-MODE_SNAPSHOT = "snapshot"
-MODE_SYNTHETIC = "synthetic"
-MODE_OFFLINE = "offline"
-
-MODE_LABELS: dict[str, str] = {
-    MODE_STREAM: "实时推送（reqMktData）",
-    MODE_SNAPSHOT: "快照轮询",
-    MODE_SYNTHETIC: "合成行情（非真实数据）",
-    MODE_OFFLINE: "无行情",
-}
-
-# 中枢自身发出的流式 tick 用这个 source；券商的快照用 "ibkr"。
-SOURCE_STREAM = "ibkr-stream"
-
-# 连续多少次快照兜底都没等到流式数据，就正式降级
-_DOWNGRADE_AFTER_STALE = 3
-
-
-# ======================================================================
-# 报价字典 → Tick
-# ======================================================================
-def _num(v: Any, default: float = 0.0) -> float:
-    """数值转换，过滤 NaN / ±inf。"""
-    try:
-        f = float(v)
-    except (TypeError, ValueError):
-        return default
-    if f != f or f in (float("inf"), float("-inf")):
-        return default
-    return f
-
-
-def _price(v: Any) -> float | None:
-    """价格类字段。
-
-    IB 用 `-1`（以及 0）表示「该字段暂无数据」，旧实现的 `_ticker_row` 里
-    有 `f not in (0.0, -1.0)` 这一判断。这里保留同等语义：非正数一律视为无数据，
-    否则会把 `bid = -1` 当成真实买价，进而算出负的价差和错误的中间价。
-    """
-    f = _num(v, 0.0)
-    return f if f > 0 else None
-
-
-def tick_from_quote(row: dict, source: str = "") -> Tick:
-    """把统一报价字典（券商快照 / data_provider 各源）转成 `Tick`。
-
-    报价字典的字段约定在所有数据源里是一致的：
-        symbol / price / prev_close / change / change_pct / volume /
-        day_high / day_low / open / bid / ask / ts / source
-    """
-    raw = str(row.get("symbol") or "").strip()
-    market, currency, symbol = "US", "USD", raw.upper()
-    try:
-        from ..markets import symbols as mksym
-
-        ref = mksym.parse(raw)
-        market, currency, symbol = ref.market, ref.currency, ref.symbol
-    except Exception:  # noqa: BLE001  解析失败不阻断行情
-        pass
-
-    price = _price(row.get("price")) or 0.0
-    bid = _price(row.get("bid"))
-    ask = _price(row.get("ask"))
-    prev_close = _price(row.get("prev_close")) or 0.0
-    open_ = _price(row.get("open")) or price
-    high = _price(row.get("day_high")) or price
-    low = _price(row.get("day_low")) or price
-
-    return Tick(
-        symbol=symbol,
-        price=price,
-        bid=bid,
-        ask=ask,
-        bid_size=_num(row.get("bid_size")),
-        ask_size=_num(row.get("ask_size")),
-        last_size=_num(row.get("last_size")),
-        volume=_num(row.get("volume")),
-        open=open_,
-        high=high,
-        low=low,
-        prev_close=prev_close,
-        currency=currency,
-        market=market,
-        source=source or str(row.get("source") or "unknown"),
-        ts=str(row.get("ts") or ""),
-        recv_ns=time.monotonic_ns(),
-    )
-
-
-# ======================================================================
-# 逐标的订阅状态
-# ======================================================================
-@dataclass
-class SymbolState:
-    symbol: str
-    market: str = "US"
-    currency: str = "USD"
-    mode: str = MODE_OFFLINE
-    refs: int = 0                 # 引用计数：0 时才会真正取消订阅
-    tick: Tick | None = None
-    error: str = ""
-    opened_at: float = 0.0
-    last_push_ns: int = 0
-    pushes: int = 0
-    snapshot_fallbacks: int = 0   # 流式失联后用快照兜底的次数
-    stale_polls: int = 0          # 连续多少次轮询没拿到新数据
-
-    def age_ms(self) -> float:
-        if not self.last_push_ns:
-            return float("inf")
-        return (time.monotonic_ns() - self.last_push_ns) / 1e6
-
-    def as_dict(self) -> dict[str, Any]:
-        d = {
-            "symbol": self.symbol, "market": self.market, "currency": self.currency,
-            "mode": self.mode, "mode_label": MODE_LABELS.get(self.mode, self.mode),
-            "refs": self.refs, "pushes": self.pushes,
-            "age_ms": None if not self.last_push_ns else round(self.age_ms(), 1),
-            "error": self.error,
-        }
-        if self.tick is not None:
-            d["tick"] = self.tick.as_dict()
-        return d
-
-
-# ======================================================================
-# 订阅者（可推可拉）
-# ======================================================================
-class Subscriber:
-    """一个行情消费者。
-
-    · 给了 `loop` → 推送模式：`_offer` 通过 `call_soon_threadsafe` 投递到该 loop，
-      用 `await sub.get()` 消费。
-    · 没给 `loop` → 拉取模式：`_offer` 直接写内存，用 `sub.drain()` 消费。
-
-    无论哪种模式，**同一标的只保留最新一条**（last-value-wins）。
-    行情是「当前状态」而不是「消息流」，积压旧报价毫无意义且会放大延迟。
-    """
-
-    __slots__ = (
-        "id", "symbols", "loop", "on_tick", "maxlen", "created_ns", "closed",
-        "_pending", "_signal", "delivered", "coalesced", "overflow",
-    )
-
-    def __init__(
-        self,
-        sid: str,
-        symbols: list[str],
-        loop: asyncio.AbstractEventLoop | None = None,
-        on_tick: Callable[[Tick], None] | None = None,
-        maxlen: int = 256,
-    ) -> None:
-        self.id = sid
-        self.symbols: set[str] = {str(s).upper() for s in symbols}
-        self.loop = loop
-        self.on_tick = on_tick
-        self.maxlen = max(1, int(maxlen))
-        self.created_ns = time.monotonic_ns()
-        self.closed = False
-        self._pending: dict[str, Tick] = {}
-        self._signal: asyncio.Queue | None = None
-        if loop is not None:
-            self._signal = asyncio.Queue(maxsize=1)
-        self.delivered = 0
-        self.coalesced = 0
-        self.overflow = 0
-
-    # ---------------- 投递 ----------------
-    def offer(self, tick: Tick) -> None:
-        """线程安全投递入口（可能从 IB 事件线程调用）。"""
-        if self.closed:
-            return
-        loop = self.loop
-        if loop is not None:
-            try:
-                loop.call_soon_threadsafe(self._offer, tick)
-            except RuntimeError:
-                # 目标 loop 已关闭（WebSocket 断开）→ 自动回收
-                self.closed = True
-            return
-        self._offer(tick)
-
-    def _offer(self, tick: Tick) -> None:
-        if self.closed:
-            return
-        symbol = tick.symbol
-        if symbol in self._pending:
-            self._pending[symbol] = tick
-            self.coalesced += 1
-            return
-        if len(self._pending) >= self.maxlen:
-            try:
-                self._pending.pop(next(iter(self._pending)))
-            except (StopIteration, KeyError):  # pragma: no cover
-                pass
-            self.overflow += 1
-        self._pending[symbol] = tick
-        sig = self._signal
-        if sig is not None:
-            try:
-                sig.put_nowait(1)
-            except asyncio.QueueFull:
-                # 已有唤醒信号在队列里，消费方醒来时会看到 _pending 非空
-                pass
-        if self.on_tick is not None:
-            try:
-                self.on_tick(tick)
-            except Exception:  # noqa: BLE001
-                pass
-
-    # ---------------- 消费 ----------------
-    async def get(self, timeout: float | None = None) -> Tick | None:
-        """取一条最新 tick；超时返回 None（不是异常，便于 `while` 循环里做心跳）。"""
-        if self._signal is None:
-            raise RuntimeError("该订阅者以拉取模式创建（无事件循环），请改用 drain()")
-        deadline = None if timeout is None else time.monotonic() + timeout
-        while True:
-            if self._pending:
-                sym = next(iter(self._pending))
-                t = self._pending.pop(sym, None)
-                if t is not None:
-                    self.delivered += 1
-                    return t
-                continue
-            if self.closed:
-                return None
-            wait = None
-            if deadline is not None:
-                wait = deadline - time.monotonic()
-                if wait <= 0:
-                    return None
-            try:
-                await asyncio.wait_for(self._signal.get(), wait)
-            except asyncio.TimeoutError:
-                return None
-
-    def drain(self) -> list[Tick]:
-        """拉取全部待消费 tick（按接收时间排序）。拉取模式下的消费方式。"""
-        if not self._pending:
-            return []
-        items = sorted(self._pending.values(), key=lambda t: t.recv_ns)
-        self._pending.clear()
-        self.delivered += len(items)
-        return items
-
-    def discard(self) -> int:
-        """丢弃尚未消费的 tick（不计入 delivered）。
-
-        用途：消费者只关心「从此刻起」的行情。例如前端刚连上时先收到一帧基线快照，
-        随后只想看增量推送，就可以先 `discard()` 一次。
-        """
-        n = len(self._pending)
-        self._pending.clear()
-        return n
-
-    def __aiter__(self) -> "Subscriber":
-        return self
-
-    async def __anext__(self) -> Tick:
-        while True:
-            t = await self.get(timeout=15.0)
-            if t is not None:
-                return t
-            if self.closed:
-                raise StopAsyncIteration
-
-    def close(self) -> None:
-        self.closed = True
-        self._pending.clear()
-
-    def stats(self) -> dict[str, Any]:
-        return {
-            "id": self.id, "symbols": sorted(self.symbols),
-            "mode": "push" if self._signal is not None else "pull",
-            "delivered": self.delivered, "coalesced": self.coalesced,
-            "overflow": self.overflow, "pending": len(self._pending),
-            "closed": self.closed,
-            "age_sec": round((time.monotonic_ns() - self.created_ns) / 1e9, 1),
-        }
-
-
-# ======================================================================
-# 统计
-# ======================================================================
-class HubStats:
-    """中枢运行统计。环形缓冲保存最近 N 个采样，用于算延迟分位数。"""
-
-    def __init__(self, window: int = 512) -> None:
-        self.ticks_in = 0
-        self.ticks_pushed = 0
-        self.cycles = 0
-        self.cycles_failed = 0
-        self.subscribe_calls = 0
-        self.subscribe_ok = 0
-        self.snapshot_calls = 0
-        self.snapshot_rows = 0
-        self.broker_errors = 0
-        self.last_error = ""
-        self.started_at = 0.0
-        self.poll_ms: deque[float] = deque(maxlen=window)
-        self.snapshot_ms: deque[float] = deque(maxlen=window)
-        self.tick_gap_ms: deque[float] = deque(maxlen=window)
-
-    @staticmethod
-    def _pct(buf: deque[float], q: float) -> float:
-        if not buf:
-            return 0.0
-        xs = sorted(buf)
-        idx = min(len(xs) - 1, max(0, int(round(q * (len(xs) - 1)))))
-        return round(xs[idx], 2)
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "ticks_in": self.ticks_in,
-            "ticks_pushed": self.ticks_pushed,
-            "cycles": self.cycles,
-            "cycles_failed": self.cycles_failed,
-            "subscribe_calls": self.subscribe_calls,
-            "subscribe_ok": self.subscribe_ok,
-            "snapshot_calls": self.snapshot_calls,
-            "snapshot_rows": self.snapshot_rows,
-            "broker_errors": self.broker_errors,
-            "last_error": self.last_error,
-            "uptime_sec": round(time.monotonic() - self.started_at, 1) if self.started_at else 0.0,
-            "poll_ms": {
-                "p50": self._pct(self.poll_ms, 0.50),
-                "p95": self._pct(self.poll_ms, 0.95),
-                "max": round(max(self.poll_ms), 2) if self.poll_ms else 0.0,
-            },
-            "snapshot_ms": {
-                "p50": self._pct(self.snapshot_ms, 0.50),
-                "p95": self._pct(self.snapshot_ms, 0.95),
-                "max": round(max(self.snapshot_ms), 2) if self.snapshot_ms else 0.0,
-            },
-            "tick_gap_ms": {
-                "p50": self._pct(self.tick_gap_ms, 0.50),
-                "p95": self._pct(self.tick_gap_ms, 0.95),
-                "max": round(max(self.tick_gap_ms), 2) if self.tick_gap_ms else 0.0,
-            },
-        }
-
 
 # ======================================================================
 # 中枢
 # ======================================================================
-class MarketDataHub:
+class MarketDataHub(_PollMixin, _QuoteMixin):
     """行情中枢。正常使用方式是 `get_hub()` 取进程内单例。"""
 
     def __init__(
@@ -777,196 +453,6 @@ class MarketDataHub:
         return len(self._subs)
 
     # ================================================================
-    # 对外报价查询（兼容旧接口的字典格式）
-    # ================================================================
-    def quotes(self, symbols: list[str], ensure: bool = True, allow_fetch: bool = True) -> list[dict]:
-        """返回统一报价字典列表。
-
-        优先用内存缓存；对完全没有数据的标的，必要时同步取一次（`allow_fetch`）。
-        这样前端首屏不会被「等第一帧推送」拖住。
-        """
-        if ensure:
-            self.ensure(symbols)
-        rows: list[dict] = []
-        missing: list[str] = []
-        for s in symbols or []:
-            t = self.latest(s)
-            if t is None or (t.price <= 0 and t.mode != MODE_STREAM):
-                missing.append(str(s))
-                continue
-            rows.append(self._tick_to_quote(t))
-        if missing and allow_fetch:
-            for t in self._fetch_now(missing):
-                rows.append(self._tick_to_quote(t))
-        return rows
-
-    def quote(self, symbol: str) -> dict:
-        rows = self.quotes([symbol])
-        if rows:
-            return rows[0]
-        return {
-            "symbol": str(symbol or "").strip().upper(), "price": 0.0,
-            "source": "none", "mode": MODE_OFFLINE,
-        }
-
-    @staticmethod
-    def _tick_to_quote(t: Tick) -> dict[str, Any]:
-        """Tick → 旧版报价字典（保持前端字段兼容）。"""
-        change = (t.price - t.prev_close) if (t.prev_close and t.price) else 0.0
-        return {
-            "symbol": t.symbol,
-            "price": round(t.price, 4),
-            "prev_close": round(t.prev_close, 4),
-            "change": round(change, 4),
-            "change_pct": round(change / t.prev_close * 100, 3) if t.prev_close else 0.0,
-            "volume": t.volume,
-            "day_high": round(t.high, 4),
-            "day_low": round(t.low, 4),
-            "open": round(t.open, 4),
-            "bid": t.bid,
-            "ask": t.ask,
-            "bid_size": t.bid_size,
-            "ask_size": t.ask_size,
-            "spread_bps": round(t.spread_bps, 3),
-            "currency": t.currency,
-            "market": t.market,
-            "ts": t.ts or "",
-            "recv_ns": t.recv_ns,
-            "source": t.source,
-            "mode": MODE_SNAPSHOT if t.source != SOURCE_STREAM else MODE_STREAM,
-        }
-
-    def _fetch_now(self, symbols: list[str]) -> list[Tick]:
-        """同步取一次报价（券商优先 → data_provider 降级链）。"""
-        out: list[Tick] = []
-        if not symbols:
-            return out
-        t0 = time.perf_counter()
-        self.stats.snapshot_calls += 1
-        broker, _prov = self._resolve_broker()
-        rows: list[dict] = []
-        if broker is not None and getattr(broker, "connected", False):
-            try:
-                rows = broker.snapshot(list(symbols)) or []
-            except Exception as exc:  # noqa: BLE001
-                self.stats.broker_errors += 1
-                self.stats.last_error = f"券商快照失败：{type(exc).__name__}: {exc}"
-        have = {str(r.get("symbol", "")).upper() for r in rows if _num(r.get("price")) > 0}
-        missing = [s for s in symbols if str(s).upper() not in have]
-        if missing:
-            try:
-                from ..data_provider import get_quotes
-
-                rows = list(rows) + list(get_quotes(missing) or [])
-            except Exception as exc:  # noqa: BLE001
-                self.stats.last_error = f"备用行情源失败：{type(exc).__name__}: {exc}"
-        for r in rows:
-            try:
-                out.append(tick_from_quote(r))
-            except Exception:  # noqa: BLE001
-                continue
-        self.stats.snapshot_rows += len(out)
-        ms = (time.perf_counter() - t0) * 1000
-        self.stats.snapshot_ms.append(ms)
-        _lat.get_latency().record(_lat.SNAPSHOT, ms)
-        return out
-
-    def refresh(self, symbols: list[str] | None = None) -> int:
-        """主动拉一次快照并写入缓存（阻塞）。返回写入条数。"""
-        syms = symbols if symbols is not None else self.tracked_symbols()
-        ticks = self._fetch_now(syms)
-        for t in ticks:
-            if self._symbols.get(t.symbol) is not None:
-                self.push(t)
-        return len(ticks)
-
-    # ================================================================
-    # 后台轮询线程
-    # ================================================================
-    def _poller(self) -> None:
-        while not self._stop.is_set():
-            t0 = time.perf_counter()
-            try:
-                self._cycle()
-            except Exception as exc:  # noqa: BLE001
-                self.stats.cycles_failed += 1
-                self.stats.last_error = f"轮询异常：{type(exc).__name__}: {exc}"
-            self.stats.cycles += 1
-            self.stats.poll_ms.append((time.perf_counter() - t0) * 1000)
-            _lat.get_latency().record(_lat.HUB_POLL, (time.perf_counter() - t0) * 1000)
-            self._wake.wait(self.poll_interval)
-            self._wake.clear()
-
-    def _cycle(self) -> None:
-        syms = self.tracked_symbols()
-        if not syms:
-            return
-
-        # 1) 为还没建立流式的标的申请推送订阅
-        want = [s for s in syms if self._symbols[s].mode != MODE_STREAM]
-        if want:
-            got = self._try_stream(want)
-            for sym in got:
-                st = self._symbols.get(sym)
-                if st is not None and st.mode != MODE_STREAM:
-                    st.mode = MODE_STREAM
-                    st.error = ""
-
-        # 2) 收集需要快照刷新/兜底的标的
-        stale_ms = self.stale_after * 1000
-        need = []
-        for sym in syms:
-            st = self._symbols.get(sym)
-            if st is None:
-                continue
-            if st.mode == MODE_STREAM and st.age_ms() <= stale_ms:
-                continue
-            if st.tick is not None and st.mode != MODE_OFFLINE and st.age_ms() <= self.poll_interval * 1000 * 0.4:
-                continue      # 刚取过，别浪费 IB 配额
-            need.append(sym)
-        if not need:
-            return
-
-        # 3) 分批取快照（避免一次几十个标的把 IB 打满）
-        for i in range(0, len(need), self.max_snapshot_batch):
-            chunk = need[i:i + self.max_snapshot_batch]
-            for t in self._fetch_now(chunk):
-                st = self._symbols.get(t.symbol)
-                if st is None:
-                    continue
-                if st.mode == MODE_STREAM:
-                    st.snapshot_fallbacks += 1
-                    if st.snapshot_fallbacks >= _DOWNGRADE_AFTER_STALE:
-                        st.mode = MODE_SNAPSHOT
-                        st.error = "流式行情长时间无推送，已降级为快照轮询"
-                self.push(t)
-
-    def _try_stream(self, symbols: list[str]) -> set[str]:
-        """向券商申请流式订阅，返回真正建立成功的标的集合。"""
-        broker, _prov = self._resolve_broker()
-        if broker is None:
-            return set()
-        if not getattr(broker, "supports_streaming", False):
-            return set()
-        if not getattr(broker, "connected", False):
-            return set()
-        self.stats.subscribe_calls += 1
-        try:
-            ok = bool(broker.subscribe(list(symbols)))
-        except Exception as exc:  # noqa: BLE001
-            self.stats.broker_errors += 1
-            self.stats.last_error = f"流式订阅失败：{type(exc).__name__}: {exc}"
-            return set()
-        if not ok:
-            return set()
-        self.stats.subscribe_ok += 1
-        try:
-            got = {str(s).upper() for s in (broker.streamed_symbols() or [])}
-        except Exception:  # noqa: BLE001
-            got = set()
-        return got & {str(s).upper() for s in symbols}
-
-    # ================================================================
     # 状态
     # ================================================================
     def status(self) -> dict[str, Any]:
@@ -1021,12 +507,6 @@ class MarketDataHub:
             self._symbols.clear()
         self.stats = HubStats()
         self.stats.started_at = time.monotonic()
-
-
-def _iso_now() -> str:
-    import datetime as _dt
-
-    return _dt.datetime.now(_dt.timezone.utc).isoformat()
 
 
 # ======================================================================
