@@ -30,7 +30,7 @@ import BridgeGuide, { type Guide } from '../components/intel/BridgeGuide'
 import RunsPanel from '../components/intel/RunsPanel'
 import { LatestHint, ProposalCard, VerifyCard } from '../components/intel/AiProposals'
 import { TimelineView } from '../components/intel/Timeline'
-import type { Analysis, Company, EventItem, Overview, Run } from '../components/intel/types'
+import type { Analysis, Company, EventItem, IngestItem, LiveStatus, Overview, Run } from '../components/intel/types'
 
 export default function Intel() {
   const toast = useToast()
@@ -56,6 +56,8 @@ export default function Intel() {
   const applyScrapeSymbols = useCallback((list: string[]) => {
     setScrapeSymbols(list)
     saveScrapeSymbols(list)
+    // 同步到后端 = 「重点盯」：监控每轮优先抓这批（2026-09-30 起，不再只作用于手动抓取）
+    api.put('/intel/settings', { pinned_symbols: list }).catch(() => {})
   }, [])
   const [busy, setBusy] = useState('')
   /* 抓取模型选择：空 = 设置页默认模型；选项来自 /ai/status（别名 + 网关全模型） */
@@ -87,6 +89,8 @@ export default function Intel() {
         setIntervalMin(d.settings.interval_minutes)
         setAutoAnalyze(d.settings.auto_analyze)
         setAiScrape(d.settings.ai_scrape ?? true)
+        // 本地未选过但后端有重点标的（换设备/清了 localStorage）→ 采纳后端为准
+        setScrapeSymbols((prev) => (prev.length ? prev : (d.settings.pinned_symbols ?? [])))
       })
       .catch((e) => toast('error', e.message))
   }, [toast])
@@ -113,6 +117,43 @@ export default function Intel() {
 
   const running = ov?.scheduler.current_run ?? null
   const monitorOn = Boolean(ov?.settings.monitor_enabled && ov?.scheduler.scheduler_alive)
+
+  /* 实时运行状态（/intel/live）：监控在后台抓哪家、分析哪家、进度几分之几。
+     监控开着或抓取任务进行中 → 3s 快轮询；空闲 → 15s 慢轮询兜底。
+     该接口后端只读内存 + 两条本地小查询，不碰网络，高频轮询安全。 */
+  const [live, setLive] = useState<LiveStatus | null>(null)
+  useEffect(() => {
+    let stopped = false
+    const tick = () =>
+      api
+        .get<LiveStatus>('/intel/live')
+        .then((d) => !stopped && setLive(d))
+        .catch(() => {})
+    tick()
+    const t = setInterval(tick, monitorOn || scrapeJob ? 3000 : 15000)
+    return () => {
+      stopped = true
+      clearInterval(t)
+    }
+  }, [monitorOn, scrapeJob])
+
+  /* 入库台账（/intel/scrape-log）：每一条「数据进了库」的记录 —— 用户要求
+     「记录好那些数据入库了」。15s 刷新；抓取动作后 refreshToken 变化时立即刷。 */
+  const [ingest, setIngest] = useState<IngestItem[]>([])
+  useEffect(() => {
+    let stopped = false
+    const loadLog = () =>
+      api
+        .get<{ items: IngestItem[] }>('/intel/scrape-log?limit=30')
+        .then((d) => !stopped && setIngest(d.items))
+        .catch(() => {})
+    loadLog()
+    const t = setInterval(loadLog, 15000)
+    return () => {
+      stopped = true
+      clearInterval(t)
+    }
+  }, [refreshToken])
 
   /** EventFeed 拉完数据回传，供「AI 买入建议」里的依据事件交叉引用 —— 避免重复请求 */
   const handleEvents = useCallback((items: EventItem[]) => setEvents(items), [])
@@ -228,13 +269,62 @@ export default function Intel() {
       .catch((e) => toast('error', e.message))
   }
 
+  /* 「一键重试失败家」（09-30 加）：复用 raw_news 缓存直接打标，按 fallback 链试模型。
+     后台 jobs 任务，复用现有 scrapeJob 轮询器显示进度；成功后 ingest 自动刷新。 */
+  const retryFailures = () => {
+    if (scrapeJob) return
+    setBusy('retry')
+    api
+      .post<{ job_id: string; symbols: string[] }>('/intel/scrape/retry', {})
+      .then((d) => {
+        if (!d.symbols || d.symbols.length === 0) {
+          toast('info', '近 60 分钟内没有失败家，无需重试')
+          setBusy('')
+          return
+        }
+        setScrapeJob({ id: d.job_id, progress: 0, total: d.symbols.length, note: `重试 ${d.symbols.length} 家…` })
+        toast('info', `重试任务已启动（${d.symbols.length} 家），下方显示进度`)
+        scrapeTimer.current = setInterval(() => {
+          api
+            .get<{ status: string; progress: number; total: number; note: string; error: string; result: any }>(
+              `/intel/job/${d.job_id}`,
+            )
+            .then((job) => {
+              setScrapeJob((prev) => (prev ? { ...prev, progress: job.progress, total: job.total, note: job.note || '' } : prev))
+              if (job.status === 'running') return
+              stopScrapePoll()
+              setScrapeJob(null)
+              setBusy('')
+              const succ = (job.result || []).filter((r: any) => r.inserted > 0).length
+              const fail = (job.result || []).filter((r: any) => r.error).length
+              if (job.status === 'error') {
+                toast('error', `重试失败：${job.error}`)
+              } else {
+                toast(fail === 0 ? 'success' : 'warning', `重试完成：${succ} 家成功 / ${fail} 家仍失败`)
+              }
+              loadOverview()
+              setRefreshToken((x) => x + 1)
+            })
+            .catch(() => {})
+        }, 2000)
+      })
+      .catch((e) => {
+        setBusy('')
+        toast('error', e.message)
+      })
+  }
+
   return (
-    /* 布局铁律：不管上方（监控总控 + 每日必读）内容多少，底部三栏必须完整展示。
-     · 根容器固定视口高度但允许溢出滚动（main 本身可滚，双保险）；
-     · 下方 grid 有 min-h 保底 —— 上方卡片再高，也只会让页面出滚动条，绝不挤压 grid。 */
-    <div className="flex h-[calc(100vh-88px)] min-h-[760px] flex-col gap-3 overflow-y-auto pr-0.5">
+    /* 布局（2026-09-30 修改）：不再锁死一屏 —— 用户反馈「很多内容被高度限制，可视度很差」。
+     · 根容器自然流式：页面随内容加高，由外层 main 统一滚动；
+     · 每日必读展开后不再限高（清单本就只有 top N 条）；
+     · 底部三栏改为固定较高高度（约一屏，min 720px），内部保留滚动 —— 列表类内容
+       （事件流可能上百条）仍需独立滚动，但可视区比旧的 460px 保底大一倍以上。 */
+    <div className="flex min-h-[760px] flex-col gap-3">
       <MonitorBar
         ov={ov}
+        live={live}
+        ingest={ingest}
         monitorOn={monitorOn}
         running={running}
         intervalMin={intervalMin}
@@ -257,12 +347,15 @@ export default function Intel() {
         onStart={startMonitor}
         onStop={stopMonitor}
         onAiScrape={aiScrapeNow}
+        onChainChange={loadOverview}
+        onRetryFailures={retryFailures}
       />
 
-      {/* AI 每日必读：强制提示区，固定在总控正下方（最显眼的位置） */}
-      <DailyDigest onRefreshParent={loadOverview} />
+      {/* AI 每日必读：强制提示区，固定在总控正下方（最显眼的位置）。
+          refreshToken：抓取任务完成/监控动作后立即重载 —— 数据一到必读就更新 */}
+      <DailyDigest onRefreshParent={loadOverview} refreshToken={refreshToken} />
 
-      <div className="grid min-h-[460px] flex-1 grid-cols-12 gap-3">
+      <div className="grid h-[calc(100vh-180px)] min-h-[720px] grid-cols-12 gap-3">
         <div className="col-span-2 flex min-h-0 flex-col">
           <CompanyList
             companies={ov?.companies ?? []}

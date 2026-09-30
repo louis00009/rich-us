@@ -124,7 +124,20 @@ export interface Overview {
     interval_minutes: number
     auto_analyze: boolean
     ai_scrape: boolean
+    /** 重点标的（监控每轮优先抓取）；老后端不返回 → undefined */
+    pinned_symbols?: string[]
+    /** 价格异动联动阈值 %；老后端不返回 → undefined */
+    surge_pct?: number
+    /** 模型 fallback 链（09-30 加）：每家抓取按顺序尝试的模型列表。空 = 单档默认模型 */
+    llm_fallback_chain?: string[]
     bridge_token: string
+  }
+  /** 熔断器状态（09-30 加）：连续失败后自动停抓取 */
+  breaker?: {
+    open: boolean
+    consec_failures: number
+    threshold: number
+    cooldown_remaining_s: number
   }
   llm: { configured: boolean }
   scheduler: { scheduler_alive: boolean; monitor_enabled: boolean; current_run: Run | null }
@@ -213,6 +226,8 @@ export interface Digest {
   days: number
   totals: {
     events?: number
+    /** 今日新增（按入库时刻的本地日历日）—— 「系统在动」的直接证据 */
+    today?: number
     critical?: number
     high?: number
     positive?: number
@@ -228,7 +243,34 @@ export interface Digest {
   llm_engine: string
   generated_by: string
   updated_at: string | null
+  /** 最新一条事件的入库时刻 —— 「数据到了、必读同步了」的心跳，缺失 = 库里还没有事件 */
+  last_event_at?: string | null
   llm_configured?: boolean
+}
+
+/* ---------------- 监控实时状态（GET /intel/live，2~3s 轮询） ---------------- */
+export interface LiveStatus {
+  scheduler_alive: boolean
+  monitor_enabled: boolean
+  interval_minutes: number
+  current_run: { id: number; started_at: string; tick_count: number; last_tick_at: string | null } | null
+  live: {
+    phase: 'idle' | 'scrape' | 'scrape_done' | 'analyze' | 'skipped' | string
+    note: string
+    progress: number
+    total: number
+    ts: string | null
+  }
+  llm_configured: boolean
+}
+
+/* ---------------- 入库台账（GET /intel/scrape-log） ---------------- */
+export interface IngestItem {
+  ts: string
+  agent: string
+  action: 'scrape' | 'ai_scrape' | 'submit_events' | 'submit_analysis' | string
+  detail: string
+  ok: boolean
 }
 
 /* ---------------- 建议验证 ---------------- */

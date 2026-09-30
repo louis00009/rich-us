@@ -26,16 +26,22 @@
  * —— 该 Select 会被禁用并说明原因，避免「勾了 7 家却只跑 4 家」这种看起来像 bug 的行为。
  */
 import { useState } from 'react'
-import { ListChecks, Play, Satellite, Square } from 'lucide-react'
+import { Satellite } from 'lucide-react'
+import IngestLog from './IngestLog'
+import LiveStatusView from './LiveStatus'
+import { ModelChain } from './ModelChain'
 import { Badge, Button, Card, Select, Switch } from '../ui'
 import ScrapePicker from './ScrapePicker'
-import { DailyBars, Metric } from './MonitorMetrics'
-import { fmtDuration, fmtSince, fmtUtc, type Overview } from './types'
+import MonitorStats from './MonitorStats'
+import MonitorToolbar from './MonitorToolbar'
+import { type IngestItem, type LiveStatus, type Overview } from './types'
 
 const INTERVALS = [5, 10, 15, 30, 60, 120]
 
 export default function MonitorBar({
   ov,
+  live,
+  ingest,
   monitorOn,
   running,
   intervalMin,
@@ -58,8 +64,14 @@ export default function MonitorBar({
   onStart,
   onStop,
   onAiScrape,
+  onChainChange,
+  onRetryFailures,
 }: {
   ov: Overview | null
+  /** 实时运行状态（/intel/live，父级 3s 轮询）；null = 老后端 */
+  live: LiveStatus | null
+  /** 入库台账（/intel/scrape-log，父级 15s 轮询） */
+  ingest: IngestItem[]
   monitorOn: boolean
   running: Overview['scheduler']['current_run']
   intervalMin: number
@@ -84,6 +96,10 @@ export default function MonitorBar({
   onStart: () => void
   onStop: () => void
   onAiScrape: () => void
+  /** 模型链改动后回调（父级重拉 overview 让链显示同步）；09-30 加 */
+  onChainChange?: () => void
+  /** 「一键重试失败家」回调（父级触发 POST /intel/scrape/retry）；09-30 加 */
+  onRetryFailures?: () => void
 }) {
   // hooks 必须在任何 early return 之前（React #300 白屏）
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -120,83 +136,22 @@ export default function MonitorBar({
       title="监控总控"
       subtitle="开启后内置 AI 自动抓取情报（外部 Agent 可选增强）；截止时自动归档事件节点与建议报告"
       actions={
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
-          {/* 指定标的：勾选即精确批次。用户有重点标的 / 只想跑一家时用这个，
-              不必碰运气看「待抓取前 N 家」轮到谁。选择结果持久化，刷新后仍在。 */}
-          <Button
-            size="sm"
-            variant={picked ? 'primary' : 'ghost'}
-            icon={<ListChecks className="h-3.5 w-3.5" />}
-            disabled={!!scrapeJob}
-            aria-expanded={pickerOpen}
-            title={
-              picked
-                ? `已指定 ${scrapeSymbols.length} 家：${scrapeSymbols.join(' → ')}\n点此修改`
-                : '从观察标的里挑要抓的公司（点选顺序 = 抓取顺序）。不选则按「本轮」家数自动取待抓取清单'
-            }
-            onClick={() => setPickerOpen((v) => !v)}
-          >
-            指定标的{picked ? ` ${scrapeSymbols.length}` : ''}
-          </Button>
-          {/* 本轮家数：**必须让用户能改**。写死 4 家 + 不解释，用户会以为「只抓了 4 家、其余被漏掉」，
-              而实际是「待抓取 28 家、每轮小批量轮转」。默认 4 家（约 2~6 分钟），想一次跑完选「全部」。
-              ⚠️ 已指定标的时禁用 —— 勾了 7 家却只跑 4 家是最像 bug 的行为，宁可显式禁用并说明。 */}
-          <label
-            className="flex items-center gap-1 text-[11px] text-slate-500"
-            title={
-              picked
-                ? `已指定 ${scrapeSymbols.length} 家标的，本轮家数不生效（指定即精确批次）。\n清空指定后此项恢复。`
-                : '「AI 立即抓取」本轮最多抓几家。\n' +
-                  '单家 = 1 次多源新闻聚合 + 最多 2 次 LLM 调用；推理型模型每次先烧上千 token 思维链，' +
-                  '所以家数越多越慢（默认 4 家约 2~6 分钟）。\n' +
-                  '监控运行时调度器每轮另自动抓 3 家轮转，长期会把全部标的覆盖一遍。'
-            }
-          >
-            本轮
-            <Select
-              value={String(scrapeLimit)}
-              onChange={(e) => setScrapeLimit(Number(e.target.value))}
-              className="!w-28"
-              disabled={!!scrapeJob || picked}
-            >
-              {[4, 8, 12].map((n) => (
-                <option key={n} value={n}>
-                  最多 {n} 家
-                </option>
-              ))}
-              <option value={0}>{pending > 0 ? `全部 ${pending} 家` : '全部待抓取'}</option>
-            </Select>
-          </label>
-          <Button
-            variant="secondary"
-            icon={<Satellite className="h-3.5 w-3.5" />}
-            loading={busy === 'ai-scrape'}
-            disabled={ov ? !ov.llm.configured : false}
-            title={
-              ov?.llm.configured
-                ? `立即执行一轮：新闻抓取 → AI 提取关键节点 → 生成买入建议（无需开启监控）。当前选择：${
-                    picked
-                      ? `指定标的 ${scrapeSymbols.join('、')}（${scrapeSymbols.length} 家）`
-                      : scrapeLimit <= 0
-                        ? `全部待抓取（${pending} 家）`
-                        : `最多 ${scrapeLimit} 家`
-                  }`
-                : '请先到「设置 → AI 分析」配置 base_url / api_key / model'
-            }
-            onClick={onAiScrape}
-          >
-            AI 立即抓取
-          </Button>
-          {monitorOn ? (
-            <Button variant="danger" icon={<Square className="h-3.5 w-3.5" />} loading={busy === 'monitor'} onClick={onStop}>
-              截止并归档
-            </Button>
-          ) : (
-            <Button variant="success" icon={<Play className="h-3.5 w-3.5" />} loading={busy === 'monitor'} onClick={onStart}>
-              一键开启监控
-            </Button>
-          )}
-        </div>
+        <MonitorToolbar
+          ov={ov}
+          pending={pending}
+          picked={picked}
+          scrapeSymbols={scrapeSymbols}
+          scrapeLimit={scrapeLimit}
+          setScrapeLimit={setScrapeLimit}
+          scrapeJob={scrapeJob}
+          busy={busy}
+          monitorOn={monitorOn}
+          pickerOpen={pickerOpen}
+          setPickerOpen={setPickerOpen}
+          onAiScrape={onAiScrape}
+          onStart={onStart}
+          onStop={onStop}
+        />
       }
     >
       {/* 指定标的：勾选即精确批次。默认收起（大多数轮次用「自动」就够），有选择时常驻展开，
@@ -254,6 +209,12 @@ export default function MonitorBar({
         </div>
       )}
 
+      {/* 09-30：监控实时进度 —— 仅在「没有手动抓取在跑」时显示，避免两条进度条叠加。手动进行中
+         时只显示上方的「AI 抓取进行中」条（jobs 互斥锁已在后端确认不会并发）。 */}
+      {!scrapeJob && (
+        <LiveStatusView monitorOn={monitorOn} live={live} ov={ov} defaultModel={defaultModel} />
+      )}
+
       {/* 状态 + 开关 */}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -271,6 +232,29 @@ export default function MonitorBar({
             <Badge tone={ov.llm.configured ? 'green' : 'slate'} dot={ov.llm.configured}>
               {ov.llm.configured ? 'AI 已连接' : 'AI 未配置'}
             </Badge>
+          )}
+          {/* 09-30：熔断器状态 —— 连续 N 家失败后跳过整批，避免日志雪崩 */}
+          {ov?.breaker && (
+            <span
+              title={
+                ov.breaker.open
+                  ? `连续 ${ov.breaker.consec_failures} 家失败，剩余 ${Math.ceil(ov.breaker.cooldown_remaining_s / 60)} 分钟冷却；所有抓取已跳过`
+                  : ov.breaker.consec_failures > 0
+                    ? `已累计 ${ov.breaker.consec_failures} 次失败 / 阈值 ${ov.breaker.threshold}`
+                    : '网关健康'
+              }
+            >
+              <Badge
+                tone={ov.breaker.open ? 'red' : ov.breaker.consec_failures > 0 ? 'amber' : 'green'}
+                dot
+              >
+                {ov.breaker.open
+                  ? `熔断中 ${Math.ceil(ov.breaker.cooldown_remaining_s / 60)}分`
+                  : ov.breaker.consec_failures > 0
+                    ? `失败 ${ov.breaker.consec_failures}/${ov.breaker.threshold}`
+                    : '网关健康'}
+              </Badge>
+            </span>
           )}
         </div>
 
@@ -297,6 +281,15 @@ export default function MonitorBar({
             ))}
           </Select>
         </label>
+      </div>
+
+      {/* 模型 fallback 链（09-30 加）：每家抓取按顺序逐档试，第一个可用即用 ——
+          不再「一个模型挂 = 23 家全挂」。父级 ov 30s 轮询刷新；用户改动后 300ms 防抖保存。 */}
+      <div className="mt-2 rounded-md bg-slate-50/50 px-3 py-1.5">
+        <ModelChain
+          chain={ov?.settings.llm_fallback_chain ?? []}
+          onChange={onChainChange}
+        />
 
         <Switch
           checked={aiScrape}
@@ -314,76 +307,20 @@ export default function MonitorBar({
         />
       </div>
 
-      {/* 关键口径：不论监控开没开都在 */}
-      <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
-        <Metric
-          label="上次运行"
-          value={lastRunText}
-          tone={last?.running ? 'brand' : 'default'}
-          title={last ? `开始 ${fmtUtc(last.started_at)}${last.ended_at ? ` · 截止 ${fmtUtc(last.ended_at)}` : ''}` : undefined}
-          hint={
-            last
-              ? `${fmtUtc(last.started_at).slice(5)} · 时长 ${fmtDuration(last.duration_seconds)}`
-              : '点击右上角「一键开启监控」'
-          }
-        />
-        <Metric
-          label="本批抓取 / 建议"
-          value={last ? `${last.events_in_window} / ${last.analyses_in_window}` : '—'}
-          tone={last && last.events_in_window > 0 ? 'brand' : 'muted'}
-          title="本批次运行窗口内实际入库的事件数 / 建议数（按时间窗口实查，不是批次自报值）"
-          hint={last ? `心跳 ${last.tick_count} 次 · ${fmtSince(last.last_tick_at)}` : undefined}
-        />
-        <Metric
-          label="今日新增事件"
-          value={act ? act.today_events : '—'}
-          tone={act && act.today_events > 0 ? 'brand' : 'muted'}
-          title="事件发生日=今天，或今天入库的事件数"
-          hint={act ? `涉及 ${act.companies_enabled} 只在观察` : undefined}
-        />
-        <Metric
-          label="近 24 小时"
-          value={act ? act.h24_events : '—'}
-          title="近 24 小时入库的事件数"
-          hint={act ? `其中 4★以上 ${act.h24_high_impact} 条 · 建议 ${act.h24_analyses} 条` : undefined}
-        />
-        <Metric
-          label="上次抓取"
-          value={act ? fmtSince(act.last_scrape_at) : '—'}
-          title="所有观察标的中最近一次成功抓取的时间"
-          hint={act ? `24h 内已覆盖 ${act.scraped_24h} / ${act.companies_enabled} 家` : undefined}
-        />
-        <Metric
-          label="累计"
-          value={act ? `${act.events_total} / ${act.analyses_total}` : '—'}
-          tone="muted"
-          title="历史累计事件数 / 建议数"
-          hint={agents.length ? `Agent：${agents.join(' / ')}` : 'Agent：暂无接入'}
-        />
-      </div>
-
-      {/* 近 7 日事件量 + 上次批次参与方 */}
-      <div className="mt-3 flex flex-wrap items-end justify-between gap-4 rounded-lg border border-slate-100 px-3 py-2.5">
-        <div>
-          <div className="mb-1.5 text-[11px] font-medium text-slate-500">近 7 日事件量</div>
-          <DailyBars daily={act?.daily ?? []} />
-        </div>
-        <div className="min-w-0 flex-1 text-[11px] leading-relaxed text-slate-500">
-          <div className="truncate">
-            <b className="text-slate-600">待抓取</b> {pending} 家
-            <span className="text-slate-400"> / 共 {ov?.stats.companies_enabled ?? '—'} 家启用</span>
-            <span className="text-slate-300"> · </span>
-            <b className="text-slate-600">参与 Agent</b> {agents.length ? agents.join(' / ') : '暂无接入'}
-          </div>
-          <div className="mt-0.5 leading-relaxed text-slate-400">
-            <b className="text-slate-500">本轮「AI 立即抓取」将抓 {planned} 家</b>
-            （{picked ? '指定标的' : scrapeLimit <= 0 ? '全部待抓取' : `最多 ${scrapeLimit} 家`}）。
-            监控开启时调度器每轮另自动抓 3 家轮转（周期 {intervalMin} 分钟），全部标的会被逐步覆盖；
-            想只跑重点公司就用「指定标的」挑，想一次跑完把「本轮」改成「全部」。
-          </div>
-          {last?.note && <div className="mt-0.5 truncate text-slate-400">批次备注：{last.note}</div>}
-        </div>
-      </div>
+      {/* 关键口径 + 近 7 日事件量（纯展示，已拆到 MonitorStats） */}
+      <MonitorStats
+        ov={ov}
+        last={last}
+        lastRunText={lastRunText}
+        act={act}
+        agents={agents}
+        pending={pending}
+        planned={planned}
+        picked={picked}
+        scrapeLimit={scrapeLimit}
+        intervalMin={intervalMin}
+      />
+      <IngestLog ingest={ingest} onRetryFailures={onRetryFailures} />
     </Card>
   )
 }

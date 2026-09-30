@@ -23,34 +23,31 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Bell, BookOpenCheck, History, RefreshCw, Sparkles, Target, TrendingUp } from 'lucide-react'
-import { Badge, Button, Card, Empty, Modal, Select, Tabs, useToast } from '../ui'
+import { Badge, Button, Card, Empty, Select, Tabs, useToast } from '../ui'
 import { api } from '../../lib/api'
 import { aiAssist } from '../../lib/ai'
 import { MarkdownLite } from '../AIAssist'
 import { markSeen, readSeen } from './digest/seen'
+import HistoryModal from './digest/HistoryModal'
 import { SymbolRow } from './digest/SymbolRow'
 import { TopItem } from './digest/TopItem'
 import { WatchCard } from './digest/WatchCard'
+import NewsFlow from './digest/NewsFlow'
 import { type Digest, fmtSince, fmtUtc, sentimentColor } from './types'
 
-export default function DailyDigest({ onRefreshParent }: { onRefreshParent?: () => void }) {
+export default function DailyDigest({
+  onRefreshParent,
+  refreshToken = 0,
+}: {
+  onRefreshParent?: () => void
+  refreshToken?: number
+}) {
   const toast = useToast()
   const [d, setD] = useState<Digest | null>(null)
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState('')
   const [tab, setTab] = useState('top')
   const [histOpen, setHistOpen] = useState(false)
-  const [hist, setHist] = useState<
-    {
-      id: number
-      digest_date: string
-      top_count: number
-      event_count: number
-      generated_by: string
-      has_llm_text: boolean
-      updated_at: string | null
-    }[]
-  >([])
   const [seenDate, setSeenDate] = useState('')
   const [expanded, setExpanded] = useState(true)
   /* 自动更新间隔（分钟，0=关闭）：到点自动「重算」。重算是纯规则计算（不调 LLM），
@@ -74,8 +71,8 @@ export default function DailyDigest({ onRefreshParent }: { onRefreshParent?: () 
   }
 
   const load = useCallback(
-    (rebuild = false) => {
-      setLoading(true)
+    (rebuild = false, silent = false) => {
+      if (!silent) setLoading(true)
       const req = rebuild ? api.post<Digest>('/intel/digest/rebuild', {}) : api.get<Digest>('/intel/digest')
       req
         .then((data) => {
@@ -85,8 +82,12 @@ export default function DailyDigest({ onRefreshParent }: { onRefreshParent?: () 
             load(true)
           }
         })
-        .catch((e) => toast('error', e.message))
-        .finally(() => setLoading(false))
+        .catch((e) => {
+          if (!silent) toast('error', e.message)
+        })
+        .finally(() => {
+          if (!silent) setLoading(false)
+        })
     },
     [toast],
   )
@@ -94,6 +95,20 @@ export default function DailyDigest({ onRefreshParent }: { onRefreshParent?: () 
   useEffect(() => {
     load()
     setSeenDate(readSeen()[new Date().toISOString().slice(0, 10)] || '')
+  }, [load])
+
+  /* 实时性保证 ①：父级 refreshToken 变化（抓取任务完成 / 监控动作）→ 立即重载。
+     GET 是轻量的（有落库行且不落后于最新事件时只读一行），后端发现落后会自动重算。 */
+  useEffect(() => {
+    if (!refreshToken) return
+    load()
+  }, [refreshToken, load])
+
+  /* 实时性保证 ②：30s 轻量轮询。监控在后台抓到新数据时，就算用户没有做任何操作，
+     每日必读也会在半分钟内自动出现新内容（后端过期判定 + 节流，正常情况只读一行）。 */
+  useEffect(() => {
+    const t = setInterval(() => load(false, true), 30_000)
+    return () => clearInterval(t)
   }, [load])
 
   /* 自动更新：到点自动「重算」（规则计算，非 LLM）。必须在 load 声明之后注册。 */
@@ -128,16 +143,6 @@ export default function DailyDigest({ onRefreshParent }: { onRefreshParent?: () 
       toast('error', e.message)
     } finally {
       setBusy('')
-    }
-  }
-
-  const openHistory = async () => {
-    setHistOpen(true)
-    try {
-      const r = await api.get<{ items: typeof hist }>('/intel/digest/history?limit=20')
-      setHist(r.items)
-    } catch (e: any) {
-      toast('error', e.message)
     }
   }
 
@@ -193,7 +198,7 @@ export default function DailyDigest({ onRefreshParent }: { onRefreshParent?: () 
               <option value={60}>60 分钟</option>
             </Select>
           </label>
-          <Button size="sm" variant="ghost" icon={<History className="h-3.5 w-3.5" />} onClick={openHistory}>
+          <Button size="sm" variant="ghost" icon={<History className="h-3.5 w-3.5" />} onClick={() => setHistOpen(true)}>
             记录
           </Button>
           <Button size="sm" variant="ghost" icon={<RefreshCw className="h-3.5 w-3.5" />} loading={loading} onClick={() => load(true)}>
@@ -224,6 +229,11 @@ export default function DailyDigest({ onRefreshParent }: { onRefreshParent?: () 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-2 text-[11px]">
         <span className="text-slate-600">
           窗口内 <b className="num text-slate-900">{totals.events ?? 0}</b> 条事件
+          {(totals.today ?? 0) > 0 && (
+            <span className="text-emerald-600">
+              {' '}· 今日新增 <b className="num">{totals.today}</b>
+            </span>
+          )}
         </span>
         <span className="text-rose-600">重大 {totals.critical ?? 0}</span>
         <span className="text-amber-600">重要 {totals.high ?? 0}</span>
@@ -235,6 +245,12 @@ export default function DailyDigest({ onRefreshParent }: { onRefreshParent?: () 
           必读 <b className="num text-slate-900">{totals.top ?? 0}</b> 条 · 涉及{' '}
           <b className="num text-slate-900">{totals.symbols ?? 0}</b> 只标的
         </span>
+        {/* 心跳：最新入库时刻 —— 数据到了必读就同步，这条让「更新」可见可查 */}
+        {d?.last_event_at && (
+          <span className="text-slate-600" title={`最新事件入库于 ${fmtUtc(d.last_event_at)}`}>
+            最新入库 <b className="num text-slate-900">{fmtSince(d.last_event_at)}</b>
+          </span>
+        )}
         {coverage > 0 && <span className="text-slate-400">（仅占事件总量的 {coverage}%）</span>}
         {/* 用户硬要求：具体日期优先 —— 相对时间只作括号辅助 */}
         <span className="ml-auto flex items-center gap-2 text-slate-400">
@@ -247,20 +263,12 @@ export default function DailyDigest({ onRefreshParent }: { onRefreshParent?: () 
         </span>
       </div>
 
-      {!expanded ? null : !d?.available || (totals.top ?? 0) === 0 ? (
-        <Empty
-          icon={<BookOpenCheck className="h-8 w-8" />}
-          title={loading ? '正在生成今日必读…' : '今日没有达到必读阈值的条目'}
-          desc={
-            loading
-              ? '首次生成需要给候选标的读量化快照，约 5~8 秒'
-              : '监控每轮会自动重算并记录；也可点右上「重算」。若长期为空，说明抓取到的信息里没有高影响事件。'
-          }
-        />
-      ) : (
-        /* 展开内容限高内滚：条目再多也只在本卡片内滚动，绝不挤压页面下方三栏布局。
-           用户反馈 40vh 太矮，调高到 60vh（大屏约一半以上可视区给必读内容）。 */
-        <div className="max-h-[60vh] min-h-0 space-y-3 overflow-y-auto pr-1">
+      {/* 展开内容不再限高（2026-09-30）：必读本就只留 top N 条，全量展开配合
+          页面级滚动，可读性最好 —— 旧的卡片内滚（40vh→60vh 两版）都被用户抱怨可视度差。
+          页签常驻（2026-09-30）：「全部新闻」在必读为空时也要能看 —— 那正是
+          「系统在跑但暂无高影响事件」时查看原始新闻流的入口。 */}
+      {!expanded ? null : (
+        <div className="space-y-3">
           <Tabs
             value={tab}
             onChange={(k) => {
@@ -268,11 +276,28 @@ export default function DailyDigest({ onRefreshParent }: { onRefreshParent?: () 
               acknowledge()
             }}
             tabs={[
-              { key: 'top', label: '必读清单', badge: d.top.length },
-              { key: 'symbols', label: '该盯哪几家', badge: d.by_symbol.length },
-              { key: 'watch', label: '买入时机', badge: d.watch.length },
+              { key: 'top', label: '必读清单', badge: d?.top.length ?? 0 },
+              { key: 'symbols', label: '该盯哪几家', badge: d?.by_symbol.length ?? 0 },
+              { key: 'watch', label: '买入时机', badge: d?.watch.length ?? 0 },
+              { key: 'news', label: '全部新闻' },
             ]}
           />
+
+          {tab === 'news' ? (
+            /* 全部新闻流：近 N 天入库的全量事件，按入库时间倒序（新抓的排最上） */
+            <NewsFlow refreshToken={refreshToken} />
+          ) : !d?.available || (totals.top ?? 0) === 0 ? (
+            <Empty
+              icon={<BookOpenCheck className="h-8 w-8" />}
+              title={loading ? '正在生成今日必读…' : '今日没有达到必读阈值的条目'}
+              desc={
+                loading
+                  ? '首次生成需要给候选标的读量化快照，约 5~8 秒'
+                  : '监控每轮会自动重算并记录；也可点右上「重算」。若长期为空，说明抓取到的信息里没有高影响事件。'
+              }
+            />
+          ) : (
+            <>
 
           {tab === 'top' && (
             <>
@@ -344,47 +369,13 @@ export default function DailyDigest({ onRefreshParent }: { onRefreshParent?: () 
           <p className="text-[11px] text-slate-400">
             本清单为研究与观察用途，不构成投资建议；平台所有交易动作必须经 AI 提案 + 人工批准。
           </p>
+            </>
+          )}
         </div>
       )}
 
-      <Modal
-        open={histOpen}
-        onClose={() => setHistOpen(false)}
-        title="每日必读 · 记录留痕"
-        width="max-w-2xl"
-        footer={<Button onClick={() => setHistOpen(false)}>关闭</Button>}
-      >
-        {hist.length === 0 ? (
-          <Empty title="暂无记录" desc="监控每轮会自动生成并落库；也可点「重算」立即生成一条" />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-slate-200 text-left text-slate-400">
-                  <th className="py-2 pr-3 font-medium">归集日</th>
-                  <th className="py-2 pr-3 font-medium">窗口事件</th>
-                  <th className="py-2 pr-3 font-medium">必读条数</th>
-                  <th className="py-2 pr-3 font-medium">AI 解读</th>
-                  <th className="py-2 pr-3 font-medium">来源</th>
-                  <th className="py-2 pr-3 font-medium">更新时间</th>
-                </tr>
-              </thead>
-              <tbody>
-                {hist.map((h) => (
-                  <tr key={h.id} className="border-b border-slate-50 text-slate-600">
-                    <td className="num py-2 pr-3 font-semibold text-slate-700">{h.digest_date}</td>
-                    <td className="num py-2 pr-3">{h.event_count}</td>
-                    <td className="num py-2 pr-3">{h.top_count}</td>
-                    <td className="py-2 pr-3">{h.has_llm_text ? <Badge tone="violet">已记录</Badge> : <span className="text-slate-400">未生成</span>}</td>
-                    <td className="py-2 pr-3">{h.generated_by === 'scheduler' ? '调度器自动' : h.generated_by}</td>
-                    <td className="py-2 pr-3 text-slate-400">{h.updated_at ? fmtUtc(h.updated_at) : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Modal>
+      {/* 记录留痕弹窗：自含取数，拆到 digest/HistoryModal（FILE_SIZE_DEBT） */}
+      <HistoryModal open={histOpen} onClose={() => setHistOpen(false)} />
     </Card>
   )
 }
