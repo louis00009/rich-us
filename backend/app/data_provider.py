@@ -12,732 +12,52 @@
 from __future__ import annotations
 
 import concurrent.futures as cf
-import hashlib
-import io
-import json
 import threading
 import time
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Any, Iterable
 
-import httpx
-import numpy as np
 import pandas as pd
 
 from .config import CACHE_DIR, settings
 from . import hist_store
+# 数据源实现拆至 providers/ 包（FILE_SIZE_DEBT Batch F-3）—— re-export 保持旧路径：
+from .providers.common import OHLCV, _normalize  # noqa: F401,E402
+from .providers.finnhub import _from_finnhub, v_fh  # noqa: F401,E402
+from .providers.stooq import _from_stooq, _stooq_symbol, v_st  # noqa: F401,E402
+from .providers.synthetic import _market_of, _synthetic  # noqa: F401,E402
+from .providers.tencent_hk import (  # noqa: F401,E402
+    _from_tencent_hk,
+    _from_tencent_hk_m1,
+    _from_tencent_hk_quote,
+    _tencent_hk_code,
+    v_tencent_hk,
+    v_tencent_hk_m1,
+)
+from .providers.twelvedata import (  # noqa: F401,E402
+    TwelveDataProvider,
+    _from_twelvedata,
+    register_twelvedata_provider,
+    v_td,
+)
+from .providers.yfinance import (  # noqa: F401,E402
+    _from_yfinance,
+    _mark_yf_fail,
+    _mark_yf_ok,
+    _yf_incremental_bounded,
+    v_yf,
+    yf_breaker_active,
+)
+# 符号宇宙 / 搜索 / 磁盘缓存 / 共享状态已拆出（FILE_SIZE_DEBT Batch F-3 续）——
+# re-export 保持旧路径：外部 `from ..data_provider import UNIVERSE / search_symbols / ...` 全部不变。
+from .ds_state import _CACHE_CAP, _bounded_set, _last_errors, recent_source_errors  # noqa: F401,E402
+from .hist_cache import _cache_path, _read_cache, _write_cache  # noqa: F401,E402
+from .symbol_search import _yahoo_search, search_symbols  # noqa: F401,E402
+from .universe import UNIVERSE, UNIVERSE_MAP, SymbolInfo  # noqa: F401,E402
 
 OHLCV = ["open", "high", "low", "close", "volume"]
 
 _TTL = {"1d": 6 * 3600, "1wk": 12 * 3600, "1h": 1800, "30m": 900, "15m": 600, "5m": 300, "1m": 60}
-# 缓存覆盖度容差（天）：缓存起始日必须不晚于「请求起始日 + 容差」，否则视为未命中
-_COVER_TOL = {"1d": 7, "1wk": 14, "1h": 3, "30m": 2, "15m": 1, "5m": 1, "1m": 1}
-# 单标的缓存上限行数（防止长期运行后 CSV 无限膨胀）
-_CACHE_MAX_ROWS = {"1d": 6000, "1wk": 1500, "1h": 8000, "30m": 8000, "15m": 8000, "5m": 8000, "1m": 2000}
-
-# 本项目周期 → TwelveData interval 参数（命名不同：1d→1day、1wk→1week、30m→30min）
-_TD_INTERVAL = {
-    "1d": "1day", "1wk": "1week", "1h": "1h",
-    "30m": "30min", "15m": "15min", "5m": "5min", "1m": "1min",
-}
-
-
-# ------------------------------------------------------------------
-# 符号宇宙（用于搜索联想）
-# ------------------------------------------------------------------
-@dataclass(frozen=True)
-class SymbolInfo:
-    symbol: str
-    name: str
-    kind: str  # ETF | STOCK | INDEX
-
-
-UNIVERSE: list[SymbolInfo] = [
-    SymbolInfo("SPY", "SPDR S&P 500 ETF Trust", "ETF"),
-    SymbolInfo("QQQ", "Invesco QQQ Trust (Nasdaq 100)", "ETF"),
-    SymbolInfo("IWM", "iShares Russell 2000 ETF", "ETF"),
-    SymbolInfo("DIA", "SPDR Dow Jones Industrial Average ETF", "ETF"),
-    SymbolInfo("VTI", "Vanguard Total Stock Market ETF", "ETF"),
-    SymbolInfo("VOO", "Vanguard S&P 500 ETF", "ETF"),
-    SymbolInfo("SMH", "VanEck Semiconductor ETF", "ETF"),
-    SymbolInfo("SOXX", "iShares Semiconductor ETF", "ETF"),
-    SymbolInfo("XLK", "Technology Select Sector SPDR", "ETF"),
-    SymbolInfo("XLF", "Financial Select Sector SPDR", "ETF"),
-    SymbolInfo("XLE", "Energy Select Sector SPDR", "ETF"),
-    SymbolInfo("XLV", "Health Care Select Sector SPDR", "ETF"),
-    SymbolInfo("XLI", "Industrial Select Sector SPDR", "ETF"),
-    SymbolInfo("XLP", "Consumer Staples Select Sector SPDR", "ETF"),
-    SymbolInfo("XLY", "Consumer Discretionary Select Sector SPDR", "ETF"),
-    SymbolInfo("XLU", "Utilities Select Sector SPDR", "ETF"),
-    SymbolInfo("XLB", "Materials Select Sector SPDR", "ETF"),
-    SymbolInfo("XLRE", "Real Estate Select Sector SPDR", "ETF"),
-    SymbolInfo("GLD", "SPDR Gold Shares", "ETF"),
-    SymbolInfo("SLV", "iShares Silver Trust", "ETF"),
-    SymbolInfo("USO", "United States Oil Fund", "ETF"),
-    SymbolInfo("TLT", "iShares 20+ Year Treasury Bond ETF", "ETF"),
-    SymbolInfo("IEF", "iShares 7-10 Year Treasury Bond ETF", "ETF"),
-    SymbolInfo("HYG", "iShares High Yield Corporate Bond ETF", "ETF"),
-    SymbolInfo("LQD", "iShares Investment Grade Corporate Bond ETF", "ETF"),
-    SymbolInfo("EEM", "iShares MSCI Emerging Markets ETF", "ETF"),
-    SymbolInfo("EFA", "iShares MSCI EAFE ETF", "ETF"),
-    SymbolInfo("FXI", "iShares China Large-Cap ETF", "ETF"),
-    SymbolInfo("KWEB", "KraneShares CSI China Internet ETF", "ETF"),
-    SymbolInfo("ARKK", "ARK Innovation ETF", "ETF"),
-    SymbolInfo("TQQQ", "ProShares UltraPro QQQ (3x)", "ETF"),
-    SymbolInfo("SOXL", "Direxion Daily Semiconductor Bull 3X", "ETF"),
-    SymbolInfo("UVXY", "ProShares Ultra VIX Short-Term Futures", "ETF"),
-    SymbolInfo("VIXY", "ProShares VIX Short-Term Futures ETF", "ETF"),
-    SymbolInfo("IBIT", "iShares Bitcoin Trust ETF", "ETF"),
-    SymbolInfo("AAPL", "Apple Inc.", "STOCK"),
-    SymbolInfo("MSFT", "Microsoft Corporation", "STOCK"),
-    SymbolInfo("NVDA", "NVIDIA Corporation", "STOCK"),
-    SymbolInfo("AMZN", "Amazon.com, Inc.", "STOCK"),
-    SymbolInfo("GOOGL", "Alphabet Inc. Class A", "STOCK"),
-    SymbolInfo("META", "Meta Platforms, Inc.", "STOCK"),
-    SymbolInfo("TSLA", "Tesla, Inc.", "STOCK"),
-    SymbolInfo("AVGO", "Broadcom Inc.", "STOCK"),
-    SymbolInfo("AMD", "Advanced Micro Devices, Inc.", "STOCK"),
-    SymbolInfo("NFLX", "Netflix, Inc.", "STOCK"),
-    SymbolInfo("CRM", "Salesforce, Inc.", "STOCK"),
-    SymbolInfo("ORCL", "Oracle Corporation", "STOCK"),
-    SymbolInfo("ADBE", "Adobe Inc.", "STOCK"),
-    SymbolInfo("INTC", "Intel Corporation", "STOCK"),
-    SymbolInfo("MU", "Micron Technology, Inc.", "STOCK"),
-    SymbolInfo("QCOM", "QUALCOMM Incorporated", "STOCK"),
-    SymbolInfo("TSM", "Taiwan Semiconductor Manufacturing (ADR)", "STOCK"),
-    SymbolInfo("ASML", "ASML Holding N.V. (ADR)", "STOCK"),
-    SymbolInfo("ARM", "Arm Holdings plc (ADR)", "STOCK"),
-    SymbolInfo("PLTR", "Palantir Technologies Inc.", "STOCK"),
-    SymbolInfo("COIN", "Coinbase Global, Inc.", "STOCK"),
-    SymbolInfo("MSTR", "MicroStrategy Incorporated", "STOCK"),
-    SymbolInfo("UBER", "Uber Technologies, Inc.", "STOCK"),
-    SymbolInfo("ABNB", "Airbnb, Inc.", "STOCK"),
-    SymbolInfo("SHOP", "Shopify Inc.", "STOCK"),
-    SymbolInfo("SQ", "Block, Inc.", "STOCK"),
-    SymbolInfo("PYPL", "PayPal Holdings, Inc.", "STOCK"),
-    SymbolInfo("JPM", "JPMorgan Chase & Co.", "STOCK"),
-    SymbolInfo("BAC", "Bank of America Corporation", "STOCK"),
-    SymbolInfo("GS", "The Goldman Sachs Group, Inc.", "STOCK"),
-    SymbolInfo("MS", "Morgan Stanley", "STOCK"),
-    SymbolInfo("V", "Visa Inc.", "STOCK"),
-    SymbolInfo("MA", "Mastercard Incorporated", "STOCK"),
-    SymbolInfo("BRK-B", "Berkshire Hathaway Inc. Class B", "STOCK"),
-    SymbolInfo("UNH", "UnitedHealth Group Incorporated", "STOCK"),
-    SymbolInfo("LLY", "Eli Lilly and Company", "STOCK"),
-    SymbolInfo("JNJ", "Johnson & Johnson", "STOCK"),
-    SymbolInfo("PFE", "Pfizer Inc.", "STOCK"),
-    SymbolInfo("MRK", "Merck & Co., Inc.", "STOCK"),
-    SymbolInfo("ABBV", "AbbVie Inc.", "STOCK"),
-    SymbolInfo("TMO", "Thermo Fisher Scientific Inc.", "STOCK"),
-    SymbolInfo("ISRG", "Intuitive Surgical, Inc.", "STOCK"),
-    SymbolInfo("XOM", "Exxon Mobil Corporation", "STOCK"),
-    SymbolInfo("CVX", "Chevron Corporation", "STOCK"),
-    SymbolInfo("COP", "ConocoPhillips", "STOCK"),
-    SymbolInfo("OXY", "Occidental Petroleum Corporation", "STOCK"),
-    SymbolInfo("WMT", "Walmart Inc.", "STOCK"),
-    SymbolInfo("COST", "Costco Wholesale Corporation", "STOCK"),
-    SymbolInfo("HD", "The Home Depot, Inc.", "STOCK"),
-    SymbolInfo("MCD", "McDonald's Corporation", "STOCK"),
-    SymbolInfo("NKE", "NIKE, Inc.", "STOCK"),
-    SymbolInfo("SBUX", "Starbucks Corporation", "STOCK"),
-    SymbolInfo("PG", "The Procter & Gamble Company", "STOCK"),
-    SymbolInfo("KO", "The Coca-Cola Company", "STOCK"),
-    SymbolInfo("PEP", "PepsiCo, Inc.", "STOCK"),
-    SymbolInfo("DIS", "The Walt Disney Company", "STOCK"),
-    SymbolInfo("BA", "The Boeing Company", "STOCK"),
-    SymbolInfo("CAT", "Caterpillar Inc.", "STOCK"),
-    SymbolInfo("GE", "GE Aerospace", "STOCK"),
-    SymbolInfo("DE", "Deere & Company", "STOCK"),
-    SymbolInfo("F", "Ford Motor Company", "STOCK"),
-    SymbolInfo("GM", "General Motors Company", "STOCK"),
-    SymbolInfo("RIVN", "Rivian Automotive, Inc.", "STOCK"),
-    SymbolInfo("LCID", "Lucid Group, Inc.", "STOCK"),
-    SymbolInfo("NIO", "NIO Inc. (ADR)", "STOCK"),
-    SymbolInfo("BABA", "Alibaba Group Holding (ADR)", "STOCK"),
-    SymbolInfo("PDD", "PDD Holdings Inc. (ADR)", "STOCK"),
-    SymbolInfo("JD", "JD.com, Inc. (ADR)", "STOCK"),
-    SymbolInfo("TCEHY", "Tencent Holdings (ADR)", "STOCK"),
-    SymbolInfo("^GSPC", "S&P 500 Index", "INDEX"),
-    SymbolInfo("^NDX", "Nasdaq 100 Index", "INDEX"),
-    SymbolInfo("^DJI", "Dow Jones Industrial Average", "INDEX"),
-    SymbolInfo("^VIX", "CBOE Volatility Index", "INDEX"),
-    SymbolInfo("^TNX", "CBOE 10-Year Treasury Note Yield", "INDEX"),
-    # T-134：加密与外汇（只读行情，仅供看板/分析；不在交易白名单）
-    SymbolInfo("BTC-USD", "Bitcoin (USD)", "CRYPTO"),
-    SymbolInfo("ETH-USD", "Ethereum (USD)", "CRYPTO"),
-    SymbolInfo("EURUSD=X", "Euro / US Dollar", "FX"),
-]
-
-UNIVERSE_MAP = {s.symbol: s for s in UNIVERSE}
-
-# ------------------------------------------------------------------
-# 全市场搜索（Yahoo search API 兜底）：本地 UNIVERSE 是精选集（S&P 500 + 常用
-# ETF/港股/指数），覆盖不了全市场——搜 SPCX（SpaceX）之类的新上市标的必须联网搜。
-# 带 10 分钟 TTL 缓存 + 失败静默降级（本地结果兜底）。
-# ------------------------------------------------------------------
-_yahoo_search_cache: dict[str, tuple[float, list[dict[str, str]]]] = {}
-_YAHOO_SEARCH_TTL = 600.0
-# P3：失败（空结果）只做短 TTL 负缓存 —— 旧实现按正常 TTL 缓存空结果，
-# 一次网络抖动会让该关键词在 10 分钟内始终搜不到，恢复被掩盖。
-_YAHOO_SEARCH_FAIL_TTL = 60.0
-_CACHE_CAP = 2048
-
-
-def _bounded_set(d: dict, key: Any, value: Any, cap: int = _CACHE_CAP) -> None:
-    """向模块级缓存写入并限制容量（超出时按插入顺序淘汰最旧的键）。
-
-    P3：这些缓存是模块级 dict，键来自用户输入的 symbol / 搜索词 ——
-    不设上限时长时间运行会被慢慢撑大，且没有任何淘汰机制。
-    """
-    d.pop(key, None)          # 先删再插，刷新插入顺序（用于 FIFO 淘汰）
-    d[key] = value
-    if len(d) > cap:
-        for k in list(d.keys())[: len(d) - cap]:
-            d.pop(k, None)
-
-_KIND_MAP = {
-    "EQUITY": "STK", "ETF": "ETF", "INDEX": "IDX", "CRYPTOCURRENCY": "CRYPTO",
-    "FUTURE": "FUT", "OPTION": "OPT", "CURRENCY": "FX", "MUTUALFUND": "FUND",
-}
-
-
-def _yahoo_search(q: str, limit: int) -> list[dict[str, str]]:
-    """Yahoo Finance 全市场搜索（股票/ETF/指数/加密，无需 key）。失败返回空。"""
-    key = f"{q.upper()}|{limit}"
-    now = time.time()
-    hit = _yahoo_search_cache.get(key)
-    if hit:
-        # 空结果走短 TTL（见 _YAHOO_SEARCH_FAIL_TTL 注释）
-        ttl = _YAHOO_SEARCH_TTL if hit[1] else _YAHOO_SEARCH_FAIL_TTL
-        if now - hit[0] < ttl:
-            return hit[1]
-    out: list[dict[str, str]] = []
-    try:
-        r = httpx.get(
-            "https://query1.finance.yahoo.com/v1/finance/search",
-            params={"q": q, "quotesCount": limit, "newsCount": 0, "listsCount": 0},
-            headers={"User-Agent": "Mozilla/5.0 QuantDesk"},
-            timeout=8,
-        )
-        r.raise_for_status()
-        for qt in (r.json().get("quotes") or [])[:limit]:
-            sym = str(qt.get("symbol") or "").strip()
-            if not sym:
-                continue
-            kind = _KIND_MAP.get(str(qt.get("quoteType") or ""), "STK")
-            name = str(qt.get("longname") or qt.get("shortname") or "")
-            exch = str(qt.get("exchDisp") or qt.get("exchange") or "")
-            out.append({"symbol": sym, "name": f"{name} [{exch}]" if exch else name, "kind": kind})
-        _bounded_set(_yahoo_search_cache, key, (now, out))
-    except Exception as exc:  # noqa: BLE001 —— 搜索失败静默，本地结果兜底
-        _last_errors["yahoo-search"] = f"{type(exc).__name__}: {exc}"[:160]
-        _bounded_set(_yahoo_search_cache, key, (now, []))
-    return _yahoo_search_cache.get(key, (now, []))[1]
-
-
-def search_symbols(q: str, limit: int = 20) -> list[dict[str, str]]:
-    """标的搜索：本地 UNIVERSE 命中排前，Yahoo 全市场结果补充（去重）。"""
-    q_raw = (q or "").strip()
-    q = q_raw.upper()
-    if not q:
-        return [{"symbol": s.symbol, "name": s.name, "kind": s.kind} for s in UNIVERSE[:limit]]
-    scored: list[tuple[int, SymbolInfo]] = []
-    for s in UNIVERSE:
-        sym, nm = s.symbol.upper(), s.name.upper()
-        if sym == q:
-            scored.append((0, s))
-        elif sym.startswith(q):
-            scored.append((1, s))
-        elif q in sym:
-            scored.append((2, s))
-        elif q_raw.upper() in nm:
-            scored.append((3, s))
-    scored.sort(key=lambda x: (x[0], len(x[1].symbol)))
-    local = [{"symbol": s.symbol, "name": s.name, "kind": s.kind} for _, s in scored[:limit]]
-    # 全市场兜底（q 长度 ≥ 2 才联网，单字符结果太多没意义）
-    remote: list[dict[str, str]] = []
-    if len(q_raw) >= 2:
-        seen = {x["symbol"] for x in local}
-        for r in _yahoo_search(q_raw, limit):
-            if r["symbol"] not in seen:
-                remote.append(r)
-    return (local + remote)[:limit]
-
-
-# ------------------------------------------------------------------
-# 缓存
-# ------------------------------------------------------------------
-def _cache_path(symbol: str, interval: str) -> Path:
-    safe = symbol.replace("^", "IDX_").replace("/", "_").replace("\\", "_")
-    d = CACHE_DIR / interval
-    d.mkdir(parents=True, exist_ok=True)
-    return d / f"{safe}.csv"
-
-
-# P1-5：按缓存文件路径分锁 —— 并发写同一 CSV 时避免半截文件与「读-合并-写」丢更新。
-_cache_locks: dict[str, threading.Lock] = {}
-
-
-def _cache_lock(path: Any) -> threading.Lock:
-    key = str(path)
-    with _locks_guard:
-        lk = _cache_locks.get(key)
-        if lk is None:
-            lk = threading.Lock()
-            _cache_locks[key] = lk
-        return lk
-
-
-def _read_cache(
-    symbol: str, interval: str, ttl: int,
-    start: str | None = None, end: str | None = None,
-    ignore_ttl: bool = False,
-) -> pd.DataFrame | None:
-    """读缓存。**必须校验覆盖度**。
-
-    历史缺陷：缓存只按 TTL 判断新鲜度，不看请求区间。一旦先用短区间（如 2024 起）
-    填充过缓存，之后请求 2019 起的数据会直接命中这份短缓存并返回 ——
-    回测和优化器于是静默地在错误的时间区间上计算。
-    ignore_ttl=True 时跳过新鲜度检查（增量更新分支用：过期缓存仍可作合并基底）。
-    """
-    p = _cache_path(symbol, interval)
-    if not p.exists():
-        return None
-    if not ignore_ttl and time.time() - p.stat().st_mtime > ttl:
-        return None
-    try:
-        df = pd.read_csv(p, index_col=0, parse_dates=True)
-    except Exception:
-        return None
-    if df is None or df.empty:
-        return None
-    try:
-        df.index = pd.to_datetime(df.index)
-    except Exception:
-        return None
-
-    tol = _COVER_TOL.get(interval, 7)
-    if start:
-        try:
-            want = pd.to_datetime(start)
-            if df.index.min() > want + pd.Timedelta(days=tol):
-                return None                      # 缓存起点晚于请求区间 → 未命中
-        except Exception:
-            pass
-    if end:
-        try:
-            want_end = pd.to_datetime(end)
-            if df.index.max() < want_end - pd.Timedelta(days=tol):
-                return None
-        except Exception:
-            pass
-    return df
-
-
-def _write_cache(symbol: str, interval: str, df: pd.DataFrame) -> None:
-    """写缓存；与已有内容合并，使覆盖区间随时间增长而不是被短区间覆盖掉。
-
-    P1-5：**原子写**。旧实现直接 `merged.to_csv(path)`（先截断再写），并发场景下
-    读者可能解析出半截文件；若截断恰好落在行边界，`read_csv` 还会「成功」返回
-    缺尾部的短数据，被当成有效缓存长期复用。改为：同路径加锁 + 写临时文件后
-    `Path.replace` 原子替换 —— 读方要么看到完整旧文件、要么看到完整新文件。
-    """
-    try:
-        path = _cache_path(symbol, interval)
-        with _cache_lock(path):
-            merged = df
-            if path.exists():
-                try:
-                    old = pd.read_csv(path, index_col=0, parse_dates=True)
-                    if old is not None and not old.empty:
-                        old.index = pd.to_datetime(old.index)
-                        merged = pd.concat([old, df])
-                        merged = merged[~merged.index.duplicated(keep="last")].sort_index()
-                except Exception:
-                    merged = df
-            cap = _CACHE_MAX_ROWS.get(interval, 6000)
-            if len(merged) > cap:
-                merged = merged.iloc[-cap:]
-            tmp = path.with_name(f"{path.name}.tmp{threading.get_ident()}")
-            try:
-                merged.to_csv(tmp)
-                tmp.replace(path)          # 同盘 rename → 原子替换
-            finally:
-                if tmp.exists():
-                    try:
-                        tmp.unlink()
-                    except OSError:
-                        pass
-                    except BaseException:  # noqa: BLE001 —— safe-delete 护栏抛 SystemExit，清理失败不外溢
-                        pass
-    except Exception:
-        pass
-
-
-# ------------------------------------------------------------------
-# 数据源
-# ------------------------------------------------------------------
-def _normalize(df: pd.DataFrame, naive_tz: str | None = "UTC") -> pd.DataFrame:
-    """统一为「真实时刻的 NY naive」语义。
-
-    naive_tz 语义（P1-1 幂等性配套）：
-      * "UTC"（默认）—— naive 输入按 UTC 解释再转 NY（腾讯 m1 预转换的 UTC 序列依赖此语义）；
-      * None         —— naive 输入已是 NY 墙钟时间，原样保留（幂等：重复调用不再漂移）；
-      * aware 输入    —— 无论 naive_tz 取值，一律 tz_convert 到 NY 后去 tz。
-    """
-    if df is None or len(df) == 0:
-        return pd.DataFrame(columns=OHLCV)
-    df = df.copy()
-    if isinstance(df.columns, pd.MultiIndex):
-        df.columns = [str(c[0]).lower() for c in df.columns]
-    else:
-        df.columns = [str(c).lower().replace("adj close", "close") for c in df.columns]
-    df = df.rename(columns={"adj_close": "close", "adjclose": "close"})
-    for c in OHLCV:
-        if c not in df.columns:
-            if c == "volume":
-                df["volume"] = 0.0
-            elif c == "close":
-                return pd.DataFrame(columns=OHLCV)
-            else:
-                df[c] = df["close"]
-    df = df[OHLCV].apply(pd.to_numeric, errors="coerce")
-    df.index = pd.to_datetime(df.index, utc=naive_tz is not None, errors="coerce")
-    df = df[df.index.notna()]
-    if naive_tz is not None:
-        try:
-            df.index = df.index.tz_convert("America/New_York").tz_localize(None)
-        except (TypeError, AttributeError):
-            pass
-    df = df[~df.index.duplicated(keep="last")].sort_index()
-    df = df.dropna(subset=["close"])
-    df["volume"] = df["volume"].fillna(0.0)
-    for c in ("open", "high", "low"):
-        df[c] = df[c].fillna(df["close"])
-    return df
-
-
-def _from_yfinance(symbol: str, start: str, end: str | None, interval: str) -> pd.DataFrame:
-    import yfinance as yf
-
-    ticker = yf.Ticker(symbol)
-    kw: dict = {"interval": interval, "auto_adjust": True, "actions": False}
-    if interval == "1d":
-        kw["start"] = start
-        if end:
-            kw["end"] = end
-    else:
-        # 1m 数据 Yahoo 只给近 7 天，请求 180d 会直接报错
-        kw["period"] = {"1m": "5d", "5m": "60d", "15m": "60d", "30m": "60d"}.get(interval, "180d")
-    df = ticker.history(**kw)
-    return _normalize(df)
-
-
-def _stooq_symbol(symbol: str) -> str:
-    s = symbol.lower()
-    if s.startswith("^"):
-        return s
-    return f"{s}.us"
-
-
-def _from_stooq(symbol: str, start: str, end: str | None) -> pd.DataFrame:
-    """Stooq 免费日线 CSV。仅日线可用。"""
-    d1 = start.replace("-", "")
-    d2 = (end or datetime.now().strftime("%Y-%m-%d")).replace("-", "")
-    # P3：symbol 来自用户输入，旧实现直接拼进 URL 查询串 —— 含 & / ? / # 时
-    # 会改变查询语义（等于注入额外参数）。改用 params 让 httpx 负责编码。
-    params = {"s": _stooq_symbol(symbol), "d1": d1, "d2": d2, "i": "d"}
-    with httpx.Client(timeout=settings.data_timeout_sec, follow_redirects=True) as c:
-        r = c.get("https://stooq.com/q/d/l/", params=params,
-                  headers={"User-Agent": "Mozilla/5.0 QuantDesk"})
-    if r.status_code != 200 or "Date" not in r.text[:200]:
-        return pd.DataFrame(columns=OHLCV)
-    df = pd.read_csv(io.StringIO(r.text))
-    if "Date" not in df.columns:
-        return pd.DataFrame(columns=OHLCV)
-    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-    df = df.dropna(subset=["Date"]).set_index("Date")
-    # P1-1 配套：Stooq 的日期是「交易日」本身（无时刻语义），不应被 UTC→NY 平移
-    # 成前一天 20:00。naive_tz=None 让日期原样保留，同时保证幂等。
-    return _normalize(df, naive_tz=None)
-
-
-def _market_of(symbol: str) -> str:
-    """判定标的市场（港股符号判断优先，失败回落后缀）。"""
-    s = symbol.strip().upper()
-    try:
-        from .markets import symbols as mksym
-        return mksym.parse(s).market
-    except Exception:  # noqa: BLE001
-        return "HK" if s.endswith(".HK") else "US"
-
-
-def _tencent_hk_code(symbol: str) -> str:
-    """0700.HK → hk00700。"""
-    code = symbol.upper().split(".")[0].strip()
-    return f"hk{code.zfill(5)}"
-
-
-def _from_tencent_hk(symbol: str, start: str, end: str | None, interval: str) -> pd.DataFrame:
-    """腾讯港股日线（前复权）。免费、无需 key，可回溯 800+ 根。
-
-    接口: web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=hk00700,day,,,320,qfq
-    返回 data.hk00700.qfqday = [[date, open, close, high, low, volume, ...], ...]
-    """
-    if interval != "1d" or not symbol.upper().endswith(".HK"):
-        return pd.DataFrame(columns=OHLCV)
-    code = _tencent_hk_code(symbol)
-    days = max(80, (datetime.now() - datetime.fromisoformat(start)).days + 30)
-    count = min(int(days / 5 * 7) + 10, 800)
-    url = f"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={code},day,,,{count},qfq"
-    with httpx.Client(timeout=settings.data_timeout_sec, follow_redirects=True) as c:
-        r = c.get(url, headers={"User-Agent": "Mozilla/5.0 QuantDesk"})
-    r.raise_for_status()
-    data = r.json().get("data", {}).get(code, {})
-    rows = data.get("qfqday") or data.get("day") or []
-    if not rows:
-        return pd.DataFrame(columns=OHLCV)
-    recs = []
-    for row in rows:
-        try:
-            recs.append({
-                "date": pd.Timestamp(row[0]),
-                "open": float(row[1]), "close": float(row[2]),
-                "high": float(row[3]), "low": float(row[4]),
-                "volume": float(row[5]) if len(row) > 5 and row[5] else 0.0,
-            })
-        except (ValueError, IndexError, TypeError):
-            continue
-    if not recs:
-        return pd.DataFrame(columns=OHLCV)
-    df = pd.DataFrame(recs).set_index("date").sort_index()
-    if end:
-        df = df[df.index <= pd.Timestamp(end)]
-    return _normalize(df)
-
-
-def _from_tencent_hk_m1(symbol: str, start: str, end: str | None = None, interval: str = "1m") -> pd.DataFrame:
-    """腾讯港股当日分时（minute/query，实测可用）。
-    返回行: "HHMM 价格 累计成交量 累计成交额" → 1 分钟 close 序列 + 差分成交量。
-    """
-    if not symbol.upper().endswith(".HK"):
-        return pd.DataFrame(columns=OHLCV)
-    code = _tencent_hk_code(symbol)
-    url = f"https://web.ifzq.gtimg.cn/appstock/app/minute/query?code={code}"
-    with httpx.Client(timeout=settings.data_timeout_sec, follow_redirects=True) as c:
-        r = c.get(url, headers={"User-Agent": "Mozilla/5.0 QuantDesk"})
-    r.raise_for_status()
-    node = (r.json().get("data", {}).get(code, {}) or {}).get("data", {}) or {}
-    rows = node.get("data") or []
-    if not rows or not isinstance(rows, list):
-        return pd.DataFrame(columns=OHLCV)
-    # 分钟只有 HHMM 没有日期；优先用接口自带 date，否则退回今天
-    base = pd.Timestamp.now().normalize()
-    try:
-        if node.get("date"):
-            base = pd.Timestamp(str(node["date"]))
-    except Exception:  # noqa: BLE001
-        pass
-    recs = []
-    prev_cum = 0.0
-    prev_px: float | None = None
-    for row in rows:
-        try:
-            parts = str(row).split()
-            if len(parts) < 2:
-                continue
-            hm = parts[0]
-            if len(hm) != 4 or not hm.isdigit():
-                continue
-            px = float(parts[1])
-            cum = float(parts[2]) if len(parts) > 2 and parts[2] else 0.0
-            ts_hk = base + pd.Timedelta(hours=int(hm[:2]), minutes=int(hm[2:]))
-            # 统一时区语义：把「HK 本地时间」转成真实时刻的 UTC 表示（naive）。
-            # _normalize 会把 naive 当 UTC 转 NY —— 与 yfinance 写缓存（aware→UTC→NY）
-            # 完全同语义，缓存才可混用；展示层再用 NY→HK 还原回港交所本地时间。
-            ts_utc = ts_hk.tz_localize("Asia/Hong_Kong").tz_convert("UTC").tz_localize(None)
-            vol = max(0.0, cum - prev_cum)      # 接口给的是累计量，差分还原每分钟
-            prev_cum = cum
-            o = prev_px if prev_px is not None else px
-            recs.append({"date": ts_utc, "open": o, "close": px, "high": max(o, px), "low": min(o, px), "volume": vol})
-            prev_px = px
-        except (ValueError, IndexError, TypeError):
-            continue
-    if not recs:
-        return pd.DataFrame(columns=OHLCV)
-    return _normalize(pd.DataFrame(recs).set_index("date").sort_index())
-
-
-def _from_tencent_hk_quote(symbol: str) -> dict | None:
-    """腾讯港股实时快照（秒级）。IB 断连时是港股报价的兜底。"""
-    if not symbol.upper().endswith(".HK"):
-        return None
-    code = _tencent_hk_code(symbol)
-    try:
-        with httpx.Client(timeout=8.0, follow_redirects=True) as c:
-            r = c.get(f"https://qt.gtimg.cn/q={code}", headers={"User-Agent": "Mozilla/5.0 QuantDesk"})
-        r.raise_for_status()
-        text = r.content.decode("gbk", errors="ignore")
-        if "~" not in text:
-            return None
-        f = text.split('"')[1].split("~")
-        price = float(f[3]) if f[3] else 0.0
-        if price <= 0:
-            return None
-        prev = float(f[4]) if len(f) > 4 and f[4] else 0.0
-        vol = float(f[6]) if len(f) > 6 and f[6] else 0.0
-        high = float(f[33]) if len(f) > 33 and f[33] else price
-        low = float(f[34]) if len(f) > 34 and f[34] else price
-        return {
-            "symbol": symbol.upper(),
-            "price": round(price, 4),
-            "prev_close": round(prev, 4),
-            "change": round(price - prev, 4) if prev else 0.0,
-            "change_pct": round((price - prev) / prev * 100, 3) if prev else 0.0,
-            "volume": vol,
-            "day_high": round(high, 4),
-            "day_low": round(low, 4),
-            "open": float(f[5]) if len(f) > 5 and f[5] else 0.0,
-            "name": f[1] if f else "",
-            "ts": datetime.now(timezone.utc).isoformat(),
-            "source": "tencent-hk",
-        }
-    except Exception:  # noqa: BLE001
-        return None
-
-
-def _from_finnhub(symbol: str, start: str, end: str | None, interval: str) -> pd.DataFrame:
-    """Finnhub 美股日线备援（需要 key；免费档失败时返回空，让降级链继续）。"""
-    from .config import settings as _s
-
-    if interval != "1d" or _market_of(symbol) != "US" or not _s.finnhub_api_key:
-        return pd.DataFrame(columns=OHLCV)
-    d1 = start.replace("-", "")
-    d2 = (end or datetime.now().strftime("%Y-%m-%d")).replace("-", "")
-    url = (
-        f"https://finnhub.io/api/v1/stock/candle?symbol={symbol}"
-        f"&from={d1}&to={d2}&resolution=D&token={_s.finnhub_api_key}"
-    )
-    try:
-        with httpx.Client(timeout=settings.data_timeout_sec) as c:
-            r = c.get(url)
-        r.raise_for_status()
-        data = r.json()
-        if data.get("s") != "ok":
-            return pd.DataFrame(columns=OHLCV)
-        df = pd.DataFrame({
-            "date": pd.to_datetime(data["t"], unit="s"),
-            "open": data["o"], "high": data["h"],
-            "low": data["l"], "close": data["c"], "volume": data["v"],
-        }).set_index("date")
-        return _normalize(df)
-    except Exception:  # noqa: BLE001
-        return pd.DataFrame(columns=OHLCV)
-
-
-def _from_twelvedata(symbol: str, start: str, end: str | None, interval: str) -> pd.DataFrame:
-    """TwelveData 行情（走多 Key 轮询池，见 `app/twelvedata.py`）。
-
-    免费档实测 **8 credits/分钟、800/天**，单账号喂不饱全量标的 —— 故本函数
-    **不直接持有密钥**，一律通过 `twelvedata.api_get` 取池中当前可用的 Key。
-    池内全部 Key 都超限/冷却时 `acquire()` 返回 None → 这里返回空 →
-    降级链继续往下走。**限流器即安全阀**，不会把额度打爆、也不会抛 429 雪崩。
-
-    ⚠️ TwelveData 的 `values` 是**倒序**（最新在前），必须 reverse，
-    否则 K 线时间轴会整体反过来（回测会读到未来数据）。
-
-    ⚠️ **时区是这里最容易错的地方**：TwelveData 的 `datetime` 是**无时区的交易所墙钟**
-    （日线就是 "2026-09-25"）。若直接交给 `_normalize`（默认把 naive 当 UTC 再转 NY），
-    日线会整体退到**前一天 20:00** —— 日期都错了，回测会系统性偏移一天。
-    所以这里先显式 `tz_localize("America/New_York")` 变成 aware。
-
-    返回值**故意不做 `_normalize`**：降级链的 `v_td` 与 provider 路径的 `fetch_history`
-    各会归一化，且两条路**互斥**（同一次请求只会走其中一条），所以恰好一次。
-    ⚠️ `_normalize` 对 naive 输入**不是幂等**的（每多跑一次就再退 4 小时），
-    因此「归一化几次」必须是确定的 —— 不要在这里、或在调用方重复加。
-    """
-    if _market_of(symbol) != "US":
-        return pd.DataFrame(columns=OHLCV)
-    td_interval = _TD_INTERVAL.get(interval)
-    if not td_interval:
-        return pd.DataFrame(columns=OHLCV)
-    from . import twelvedata as _td
-
-    if not _td.pool().has_key():
-        return pd.DataFrame(columns=OHLCV)
-
-    # 日线/周线用 outputsize 拿长历史；日内给 start_date/end_date（免费档日内回溯有限）
-    params: dict[str, Any] = {"symbol": symbol, "interval": td_interval}
-    if interval in ("1d", "1wk"):
-        params["outputsize"] = 5000
-    else:
-        params["start_date"] = start
-        if end:
-            params["end_date"] = end
-        params["outputsize"] = 5000
-
-    res = _td.api_get("/time_series", params)
-    if not res.get("ok"):
-        return pd.DataFrame(columns=OHLCV)
-    data = res.get("data") or {}
-    values = data.get("values") if isinstance(data, dict) else None
-    if not values:
-        return pd.DataFrame(columns=OHLCV)
-    df = pd.DataFrame(values)
-    if "datetime" not in df.columns:
-        return pd.DataFrame(columns=OHLCV)
-    df = df.rename(columns={"datetime": "date"})
-    for c in OHLCV:
-        if c not in df.columns:
-            df[c] = 0.0 if c == "volume" else np.nan
-    df = df[["date", *OHLCV]]
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    df = df.dropna(subset=["date"]).set_index("date")
-    df = df.iloc[::-1]                      # 倒序 → 正序（见 docstring 的警告）
-    try:
-        df.index = df.index.tz_localize("America/New_York")   # naive 墙钟 → aware（关键）
-    except (TypeError, AttributeError):
-        pass                                # 已经是 aware 就原样保留
-    df = df[~df.index.duplicated(keep="last")].sort_index()
-
-    # 尊重请求区间：日线/周线用 `outputsize=5000` 会返回**远超 start** 的长历史，
-    # 且 TwelveData 在该分支下**不认 end** —— 若不裁剪，指定 end 的回测会读到
-    # end 之后的 K 线，等于未来函数（铁律）。裁剪逻辑放在 twelvedata.clip_range（纯函数，可自检）。
-    df = _td.clip_range(df, start, end, interval)
-    return df[OHLCV].apply(pd.to_numeric, errors="coerce")
-
-
-def _synthetic(symbol: str, start: str, end: str | None, interval: str) -> pd.DataFrame:
-    """确定性合成行情：同一 symbol 永远生成同一序列，便于离线自检与演示。"""
-    seed = int(hashlib.sha256(symbol.encode()).hexdigest()[:8], 16)
-    rng = np.random.default_rng(seed)
-    end_ts = pd.Timestamp(end) if end else pd.Timestamp.now().normalize()
-    start_ts = pd.Timestamp(start)
-    freq = {"1d": "B", "1wk": "W-FRI", "1h": "h", "30m": "30min", "15m": "15min", "5m": "5min", "1m": "1min"}[interval]
-    idx = pd.date_range(start_ts, end_ts, freq=freq)
-    if len(idx) < 60:
-        idx = pd.date_range(end_ts - pd.Timedelta(days=800), end_ts, freq=freq)
-    n = len(idx)
-    base = 30.0 + (seed % 400)
-    drift = ((seed % 100) / 100.0 - 0.35) * 0.0004
-    vol = 0.010 + (seed % 23) / 1000.0
-    rets = rng.normal(drift, vol, n)
-    # 叠加温和的均值回归与波动率聚集
-    for i in range(1, n):
-        rets[i] -= 0.06 * rets[i - 1]
-    vol_series = np.abs(rng.normal(1.0, 0.25, n)).clip(0.4, 3.0)
-    rets = rets * vol_series
-    close = base * np.exp(np.cumsum(rets))
-    intra = np.abs(rng.normal(0, vol, n)) * close
-    open_ = np.concatenate([[close[0] * (1 - rets[0])], close[:-1]])
-    high = np.maximum(open_, close) + intra * 0.6
-    low = np.minimum(open_, close) - intra * 0.6
-    volume = (rng.lognormal(15.5, 0.5, n)).astype(float)
-    return pd.DataFrame(
-        {"open": open_, "high": high, "low": low, "close": close, "volume": volume}, index=idx
-    ).pipe(_normalize)
 
 
 # ------------------------------------------------------------------
@@ -836,7 +156,6 @@ _inflight: dict[str, "cf.Future"] = {}
 _INFLIGHT_TIMEOUT = 60.0   # leader 超时后跟随者自行拉取，绝不无限等
 _quote_cache: dict[str, tuple[float, dict]] = {}
 _QUOTE_TTL = 20          # 秒
-_last_errors: dict[str, str] = {}
 # 免费链失败冷却：yfinance cookie/crumb 挂起实测 44.7s（超时+重试），27 个关注标的
 # × 8 并发 × 每 20s 报价缓存过期 = 每次进页面都重烧整条降级链 30~40s。
 # 冷却期内直接回旧缓存/合成（与原失败终点相同的数据，只是不再重烧网络）。
@@ -845,52 +164,11 @@ _CHAIN_COOLDOWN = 300.0        # 秒；日内周期取 min(该周期 TTL, 300)�
 _CHAIN_COOLDOWN_DAILY = 1800.0  # 日线/周线冷 30 分钟：日 K 一天只更新一次，
                                 # 且避免「每 5 分钟集体过期 → 整批重烧一次」的节律性卡顿
 
-# 全局 yfinance 熔断：yfinance 内部超时不可控（cookie/crumb 挂起实测 20~45s），
-# 27 标的并发首拉能把冷启动拖到分钟级。任一 yfinance 调用挂起/空返 → 全局熔断
-# _YF_BREAKER_SEC 秒：增量更新与免费链的 yfinance 一环全部跳过（回旧缓存/走下链），
-# 任一 yfinance 成功 → 立即解除。健康时熔断永不触发，行为与原来完全一致。
-_yf_fail_at: float = 0.0
-_YF_BREAKER_SEC = 120.0
-_YF_INC_TIMEOUT = 8.0           # 增量更新单次等待上限（健康时 1~3s 内返回）
-
 
 def _chain_cooldown_sec(interval: str) -> float:
     if interval in ("1d", "1wk"):
         return _CHAIN_COOLDOWN_DAILY
     return min(_TTL.get(interval, 3600), _CHAIN_COOLDOWN)
-
-
-def _mark_yf_fail() -> None:
-    global _yf_fail_at
-    _yf_fail_at = time.time()
-
-
-def _mark_yf_ok() -> None:
-    global _yf_fail_at
-    _yf_fail_at = 0.0
-
-
-def yf_breaker_active() -> bool:
-    return _yf_fail_at > 0 and time.time() - _yf_fail_at < _YF_BREAKER_SEC
-
-
-def _yf_incremental_bounded(symbol: str, inc_start: str, end: str | None, interval: str) -> pd.DataFrame | None:
-    """有界等待的 yfinance 增量拉取：超时按失败处理（返回 None）。
-
-    超时后残留的守护线程会等 yfinance 内部超时后自行结束，不写缓存、不再累积。
-    """
-    box: dict[str, pd.DataFrame | None] = {}
-
-    def _run() -> None:
-        try:
-            box["df"] = _from_yfinance(symbol, inc_start, end, interval)
-        except Exception:  # noqa: BLE001
-            box["df"] = None
-
-    t = threading.Thread(target=_run, daemon=True, name=f"yf-inc-{symbol}")
-    t.start()
-    t.join(_YF_INC_TIMEOUT)
-    return box.get("df")
 
 
 def _chain_key(symbol: str, interval: str) -> str:
@@ -922,11 +200,6 @@ def chain_cooldown_count() -> int:
         if now - ts < _chain_cooldown_sec(interval):
             n += 1
     return n
-
-
-def recent_source_errors() -> dict[str, str]:
-    """各数据源最近一次失败原因（诊断用，随时可清空重来）。"""
-    return dict(_last_errors)
 
 
 # ------------------------------------------------------------------
@@ -1023,10 +296,16 @@ def fetch_history(
                     _mark_yf_ok()                        # yfinance 恢复 → 解除全局熔断
                     _chain_fail_at.pop(cool_key, None)   # 恢复成功 → 解除冷却
                     return merged, "cache+inc"
-                # 增量为空/超时（休市 / 被限流 / 挂起）→ 旧缓存照常可用，
-                # 同时进入失败冷却 + 标记 yfinance 全局熔断。
-                _mark_yf_fail()
-                _chain_fail_at[cool_key] = time.time()
+                if inc is None:
+                    # 真失败（异常 / 8s 超时）→ 标记 yfinance 全局熔断 + 该标的进入失败冷却。
+                    _mark_yf_fail()
+                    _chain_fail_at[cool_key] = time.time()
+                    return stale_df, "cache-stale"
+                # inc 是「调用成功但零行」（休市 / 当日 K 线尚未发布 / 请求区间无数据）：
+                # yfinance 本身是**健康的**，绝不能标记全局熔断 —— 否则一个标的的
+                # 「无新数据」会把 120s 内**所有**标的的 yfinance 一起冻结（旧实现如此，属误伤），
+                # 也不能设该标的的失败冷却（那不是失败，且会把新 K 线出现后的刷新冻 30 分钟）。
+                # 旧缓存照常可用；下次请求再试一次增量，成本极低（成功但空会立刻返回）。
                 return stale_df, "cache-stale"
         except Exception:
             pass                                        # 增量任何异常都退回全量路径
@@ -1103,78 +382,6 @@ def fetch_history(
     # 4) 合成兜底
     df = _synthetic(symbol, start, end, interval)
     return df, "synthetic"
-
-
-def v_yf(symbol: str, start: str, end: str | None, interval: str) -> pd.DataFrame:
-    return _from_yfinance(symbol, start, end, interval)
-
-
-def v_st(symbol: str, start: str, end: str | None, interval: str) -> pd.DataFrame:
-    if interval != "1d":
-        return pd.DataFrame(columns=OHLCV)
-    return _from_stooq(symbol, start, end)
-
-
-def v_tencent_hk(symbol: str, start: str, end: str | None, interval: str) -> pd.DataFrame:
-    return _from_tencent_hk(symbol, start, end, interval)
-
-
-def v_tencent_hk_m1(symbol: str, start: str, end: str | None, interval: str) -> pd.DataFrame:
-    return _from_tencent_hk_m1(symbol, start, end, interval)
-
-
-def v_fh(symbol: str, start: str, end: str | None, interval: str) -> pd.DataFrame:
-    return _from_finnhub(symbol, start, end, interval)
-
-
-def v_td(symbol: str, start: str, end: str | None, interval: str) -> pd.DataFrame:
-    # `_from_twelvedata` 返回 aware（纽约）帧、**故意不做**归一化（见其 docstring）——
-    # 降级链的契约是「已归一化」，所以在这里补上这**唯一一次**。
-    return _normalize(_from_twelvedata(symbol, start, end, interval))
-
-
-class TwelveDataProvider:
-    """适配器：把 TwelveData 多 Key 轮询池接进数据源注册表。
-
-    注册后才能出现在「设置 → 数据与缓存 → 源健康状态」里，并可被选为优先数据源。
-    `history()` 返回 **aware（纽约）** 帧，由 `fetch_history` 里的 `_normalize`
-    做那**唯一一次**归一化（若这里先归一化成 naive，会被再当 UTC 转一次 →
-    日线整体退一天）。
-    """
-
-    name = "twelvedata"
-
-    def history(self, symbol: str, start: str | None, end: str | None, interval: str):
-        try:
-            df = _from_twelvedata(symbol, start or "2019-01-01", end, interval)
-            return df if df is not None and len(df) > 20 else None
-        except Exception:  # noqa: BLE001
-            return None
-
-    def status(self) -> dict:
-        from . import twelvedata as _td
-
-        st = _td.pool().status()
-        if st["enabled"] == 0:
-            return {
-                "name": "twelvedata",
-                "available": False,
-                "reason": "未配置密钥（在「数据与缓存」里添加 TwelveData Key）",
-            }
-        return {
-            "name": "twelvedata",
-            "available": st["available_now"] > 0,
-            "reason": (
-                f"{st['enabled']} 个密钥，当前可用 {st['available_now']} 个；"
-                f"合计额度 {st['effective_per_min']}/min、{st['effective_per_day']}/day"
-            ),
-            **{k: st[k] for k in ("count", "enabled", "available_now",
-                                  "effective_per_min", "effective_per_day")},
-        }
-
-
-def register_twelvedata_provider() -> None:
-    register_history_provider("twelvedata", TwelveDataProvider())
 
 
 def register_local_provider() -> None:
