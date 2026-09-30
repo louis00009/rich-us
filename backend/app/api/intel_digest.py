@@ -84,7 +84,11 @@ def _shape(row: dict[str, Any] | None, *, days: int) -> dict[str, Any]:
 
 @router.get("/digest")
 def get_digest(user: CurrentUser, scope: str = "", days: int = 0) -> dict:  # noqa: ARG001
-    """取当日必读清单。没有落库记录时**现算并落库**（首次约 5~8 秒：要给候选标的读量化快照）。"""
+    """取当日必读清单。没有落库记录时**现算并落库**（首次约 5~8 秒：要给候选标的读量化快照）。
+
+    实时性：落库行落后于最新入库事件时同步重算（30s 节流，节流期内转后台刷新）——
+    保证「抓取/监控的数据一到，打开每日必读就能看到」，而不是等监控下一轮。
+    """
     sc = _norm_scope(scope)
     d = max(1, min(_MAX_DAYS, int(days or intel_digest.DIGEST_DAYS)))
     row = intel_digest.load_digest(scope=sc) if sc == "all" else None
@@ -92,7 +96,16 @@ def get_digest(user: CurrentUser, scope: str = "", days: int = 0) -> dict:  # no
         payload = intel_digest.build_digest(days=d, symbol=None if sc == "all" else sc)
         intel_digest.save_digest(payload, generated_by="api")
         row = intel_digest.load_digest(scope=payload["scope"])
+    else:
+        row = intel_digest.refresh_if_stale(row)
     out = _shape(row, days=d)
+    # 心跳：最新一条事件的入库时刻 —— 让「数据到了、必读同步了」可见可查，
+    # 否则清单内容因去重稳定时用户会误以为「没在更新」。
+    try:
+        _ne = intel_digest.newest_event_at()
+        out["last_event_at"] = _ne.isoformat() if _ne else None
+    except Exception:  # noqa: BLE001
+        out["last_event_at"] = None
     # 附带当前是否已配置 AI —— 前端据此决定「AI 深度解读」按钮是否可点
     from ..ai_analyst import ai_configured
 

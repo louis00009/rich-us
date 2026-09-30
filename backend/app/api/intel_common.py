@@ -70,6 +70,13 @@ class IntelSettingsReq(BaseModel):
     interval_minutes: int | None = None
     auto_analyze: bool | None = None
     ai_scrape: bool | None = None
+    # 重点标的（监控每轮优先抓取；2026-09-30 起「指定标的」同步到这里 = 重点盯）
+    pinned_symbols: list[str] | None = None
+    # 价格异动联动阈值 %（观察标的盘中 |涨跌幅| 达到即记事件 + 触发归因分析）
+    surge_pct: float | None = None
+    # 模型 fallback 链（09-30 加）：逗号分隔，每家抓取按顺序尝试。
+    # 例：`"监hy4-perview,cn:glm-5.3-flash,deepseek4.1-flash"`。空串 = 用 settings.ai_model 单档。
+    llm_fallback_chain: str | None = None
 
 
 class AiScrapeReq(BaseModel):
@@ -80,6 +87,13 @@ class AiScrapeReq(BaseModel):
     limit: int = 3
     with_analysis: bool = True
     model: str = ""   # 空 = 设置页默认模型；非空 = 别名/网关模型 id（_llm_config_for 解析）
+
+
+class RetryRequest(BaseModel):
+    """POST /intel/scrape/retry 的请求体（09-30 加）。"""
+    symbols: list[str] = []        # 空 = 自动取近 since_minutes 内失败家
+    since_minutes: int = 60        # 自动模式下的时间窗
+    model: str = ""                # 空 = 用 llm_fallback_chain；非空 = 单档模型
 
 
 # 手动抓取的硬上限：单家要 1 次新闻聚合 + 最多 2 次 LLM 调用，推理型模型每次先烧

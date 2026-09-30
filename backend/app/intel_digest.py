@@ -24,6 +24,8 @@ from __future__ import annotations
 import datetime as dt
 import json
 import logging
+import threading
+import time
 from typing import Any
 
 from sqlalchemy import case
@@ -32,180 +34,38 @@ from sqlalchemy.orm import Session
 from .database import session_scope
 from . import intel_classify as classify
 from .models import IntelAnalysis, IntelCompany, IntelDigest, IntelEvent
+# 评分纯函数区拆至 intel_digest_scoring.py —— re-export 保持旧路径与打桩兼容：
+from .intel_digest_scoring import (  # noqa: F401,E402
+    CATEGORY_WEIGHT,
+    DIGEST_DAYS,
+    SOURCE_WEIGHT_HINT,
+    STAGE_WEIGHT,
+    TIER_CRITICAL,
+    TIER_HIGH,
+    TIER_MEDIUM,
+    _BASE_MAX,
+    _COMMENTARY_CAP,
+    _FRESH_FLOOR,
+    _MOD_MAX,
+    _MOD_MIN,
+    _freshness,
+    _parse_day,
+    _source_weight,
+    score_event,
+)
 
 log = logging.getLogger("quantdesk.intel.digest")
 
-# ------------------------------------------------------------------
-# 评分权重（集中定义，便于调参与测试）
-# ------------------------------------------------------------------
-# 事件类别权重：改变中期基本面的类别更值得看
-CATEGORY_WEIGHT: dict[str, float] = {
-    "earnings": 1.25,       # 财报/业绩指引
-    "partnership": 1.20,    # 重大合同/合作（前瞻可见性）
-    "regulatory": 1.15,     # 监管/政策（可一票否决）
-    "product_launch": 1.10,
-    "model_release": 1.10,
-    "personnel": 0.85,      # 人事多为噪音，但 CEO/首席科学家级别另说
-    "macro": 0.90,
-    "other": 0.80,
-}
 
-# 前瞻管道阶段权重：已敲定 > 在谈 > 传闻
-STAGE_WEIGHT: dict[str, float] = {
-    "confirmed": 1.25,
-    "negotiating": 1.00,
-    "rumor": 0.65,
-    "": 1.00,
-}
-
-# 来源权重：一手/官方 > 聚合器（缺失不惩罚）
-SOURCE_WEIGHT_HINT: list[tuple[str, float]] = [
-    ("sec", 1.15), ("gov", 1.15), ("fda", 1.15), ("faa", 1.15),
-    ("reuters", 1.10), ("bloomberg", 1.10), ("wsj", 1.10),
-    ("cnbc", 1.05), ("ft.com", 1.05), ("company", 1.10), ("ir.", 1.10),
-]
-
-# 重要度分档阈值（用于前端徽章与「重点」判定）
-# 与下面的修正系数区间配套设计，保证分档与影响度**严格对齐**：
-#   新鲜 5★ ∈ [80.9, 96.8] → 必是 critical；新鲜 4★ ∈ [64.8, 77.4] → 必是 high；
-#   新鲜 3★ ∈ [48.6, 58.1] → 必是 medium。不会出现「4★ 压过 5★」的错位。
-TIER_CRITICAL = 79.0   # 必读·重大
-TIER_HIGH = 60.0       # 必读·重要
-TIER_MEDIUM = 40.0     # 可看
-
-# 基准分：**不能**让 5★ 一上来就顶到 100，否则 4★ 与 5★ 会因封顶而无法区分
-# （第一版就踩了这个坑：全部饱和成 100.0，排序退化成无意义）。
-# 取 88 → 17.6 / 35.2 / 52.8 / 70.4 / 88.0。
-_BASE_MAX = 88.0
-# 修正系数区间刻意收窄到 ±10%：影响度必须是**主导项**。
-# 第一版用 [0.70, 1.25] 时，「4★ 财报+已敲定+路透+利空」(88.0) 会压过
-# 「5★ 普通利好」(79.2) —— 那是排序错位，不是「综合考量」。
-_MOD_MIN, _MOD_MAX = 0.92, 1.10
-
-# 新鲜度下限（见 _freshness）：窗口内的 5★ 必须始终 >= TIER_HIGH，否则「重点」会被周末冲淡
-_FRESH_FLOOR = 0.80
-
-# 媒体评论/行情播报的重要度**硬上限**（严格低于 TIER_MEDIUM=40）。
-# 为什么用封顶而不是乘个系数：系数会被 impact 这个主导项放大 ——
-# 「3 AI Stocks With Revenue Growth」若被判 4★，乘 0.5 仍有 32 分，再叠上类别/来源加成
-# 就能挤进「必读」。封顶才是硬约束：评论类**永远**进不了必读清单。
-_COMMENTARY_CAP = 34.9
-
-DIGEST_DAYS = 3        # 必读回看窗口（覆盖周末与非交易日）
 DIGEST_TOP_N = 12      # 必读条数上限
 DIGEST_PER_SYMBOL = 2  # 单只标的在必读里最多占几条（防止一家刷屏）
+# critical 也限 2 条：曾出现一家标的靠 3 条 critical 免配额占掉 top 的 1/4，
+# 用户观感就是「必读永远不变」——重大事件优先，但不允许一家霸屏（2026-09-30）。
+DIGEST_PER_SYMBOL_CRITICAL = 2
 
 _HIGH_IMPACT = 4       # 达到该影响度即视为「重大事件」，不设阈值直接进必读
 
 
-def _parse_day(value: str | None) -> dt.date | None:
-    try:
-        return dt.date.fromisoformat(str(value or "")[:10])
-    except (TypeError, ValueError):
-        return None
-
-
-def _freshness(age_days: int | None) -> float:
-    """新鲜度：当天 1.0，窗口末降到 0.8。
-
-    为什么下限是 0.8 而不是更激进的衰减：**窗口本身只有 3 天**，「3 天内」本来就等于
-    「近期」。第一版用 1.0 → 0.5，导致两天前的 5★ 只剩 54 分被判成「可看」——
-    而这恰恰是用户抱怨的「重点被埋掉」：一条足以改变中期基本面判断的消息，
-    不该因为隔了一个周末就从必读掉到可看。窗口内的 5★ 必须始终 ≥ high。
-    新鲜度仍参与排序（越新越靠前），只是不再跨越分档边界。
-    """
-    if age_days is None:
-        return 0.85          # 日期未知：中性（约等于 1.5 天前），不臆造时间也不排除
-    a = max(0, age_days)
-    if a >= DIGEST_DAYS:
-        return _FRESH_FLOOR
-    return round(1.0 - (1.0 - _FRESH_FLOOR) * (a / DIGEST_DAYS), 4)
-
-
-def _source_weight(name: str) -> float:
-    low = (name or "").lower()
-    for hint, w in SOURCE_WEIGHT_HINT:
-        if hint in low:
-            return w
-    return 1.0
-
-
-def score_event(event: dict[str, Any], today: dt.date | None = None) -> dict[str, Any]:
-    """确定性重要度评分（纯函数，无 I/O）。
-
-    重要度 = 基准分(影响度) × 新鲜度 × 修正系数
-      · 基准分 = impact/5 × 88（见 _BASE_MAX 注释：不能一上来就顶到 100）
-      · 修正系数 = 1 + 类别/阶段/来源/方向 四项加成，夹取到 [0.70, 1.25]
-        —— 加成是**有界的**，保证影响度始终是主导项：4★ 无论来源多好都压不过 5★。
-      · 利空加成最高（下跌风险优先于机会）；中性轻微扣分。
-
-    返回 {importance, tier, reasons, age_days}
-    """
-    today = today or dt.date.today()
-    impact = event.get("impact")
-    try:
-        impact = max(1, min(5, int(impact)))
-    except (TypeError, ValueError):
-        impact = 3
-
-    day = _parse_day(event.get("occurred_on"))
-    age = None if day is None else max(0, (today - day).days)
-    fresh = _freshness(age)
-
-    cat = str(event.get("category") or "other")
-    cw = CATEGORY_WEIGHT.get(cat, 0.85)
-    stage = str(event.get("stage") or "")
-    sw = STAGE_WEIGHT.get(stage, 1.0)
-    src = _source_weight(str(event.get("source_name") or ""))
-    sentiment = str(event.get("sentiment") or "neutral")
-    sent_coef = 1.08 if sentiment == "negative" else (1.0 if sentiment == "positive" else 0.92)
-
-    mod = 1.0 + (cw - 1.0) * 0.5 + (sw - 1.0) * 0.5 + (src - 1.0) * 0.5 + (sent_coef - 1.0) * 0.5
-    mod = max(_MOD_MIN, min(_MOD_MAX, mod))
-    importance = round(max(0.0, min(100.0, (impact / 5.0) * _BASE_MAX * fresh * mod)), 1)
-
-    # 媒体评论/行情播报/分析师调价不是公司自身事件 → 重要度封顶（见 _COMMENTARY_CAP）。
-    # 依据来自 intel_classify.is_commentary，是**可核对**的规则命中，不是黑箱。
-    commentary = bool(event.get("commentary"))
-    if commentary:
-        importance = min(importance, _COMMENTARY_CAP)
-
-    if importance >= TIER_CRITICAL:
-        tier = "critical"
-    elif importance >= TIER_HIGH:
-        tier = "high"
-    elif importance >= TIER_MEDIUM:
-        tier = "medium"
-    else:
-        tier = "low"
-
-    # 理由：只写真正起作用的因素，避免套话
-    reasons: list[str] = []
-    if commentary:
-        # 评论类的「低分理由」必须说清楚，否则用户会以为是评分出错。
-        return {"importance": importance, "tier": tier, "age_days": age,
-                "reasons": ["媒体评论/行情播报，非公司自身事件（不参与重点判定）"]}
-    if impact >= 5:
-        reasons.append("影响度 5★：足以改变中期基本面判断")
-    elif impact == 4:
-        reasons.append("影响度 4★：重大合同/指引调整级别")
-    if age is not None and age <= 1:
-        reasons.append("当日/隔日新信息")
-    if sentiment == "negative":
-        reasons.append("利空：下跌风险优先处理")
-    if stage == "confirmed":
-        reasons.append("已敲定事实（非传闻）")
-    elif stage == "negotiating":
-        reasons.append("官方口径在谈：尚未落地")
-    elif stage == "rumor":
-        reasons.append("仅为传闻：需等证实")
-    if cw >= 1.20:
-        reasons.append({"earnings": "财报/指引直接改盈利预期",
-                        "partnership": "合同管道前瞻未来 3-6 个月经营"}.get(cat, "高信息量类别"))
-    if src >= 1.10:
-        reasons.append("一手/权威来源")
-
-    return {"importance": importance, "tier": tier, "reasons": reasons[:4], "age_days": age}
 
 
 # ------------------------------------------------------------------
@@ -232,6 +92,9 @@ def _candidate_events(db: Session, days: int, symbol: str | None) -> list[dict[s
             "title": e.title, "summary": e.summary, "impact": e.impact,
             "sentiment": e.sentiment, "stage": e.stage,
             "source_name": e.source_name, "source_url": e.source_url, "agent": e.agent,
+            # 入库时刻（naive UTC）：「今日新增」按本地日历日统计，不用 occurred_on
+            # —— 凌晨抓到的新闻 occurred_on 是 UTC 的「昨天」，按发生日算会漏
+            "created_at": e.created_at,
             # 评论类不参与重点判定（见 _COMMENTARY_CAP）；这里算一次，供 score_event 使用
             "commentary": classify.is_commentary(e.title or ""),
         }
@@ -310,10 +173,13 @@ def _timing_for(symbol: str, rec: str | None) -> dict[str, Any]:
 # ------------------------------------------------------------------
 # 构建必读清单
 # ------------------------------------------------------------------
-def _pick_top(scored: list[dict[str, Any]], top_n: int, per_symbol: int) -> list[dict[str, Any]]:
+def _pick_top(scored: list[dict[str, Any]], top_n: int, per_symbol: int,
+              critical_per_symbol: int = DIGEST_PER_SYMBOL_CRITICAL) -> list[dict[str, Any]]:
     """按重要度取前 N 条，同时限制单标的条数（避免一家公司刷屏）。
 
-    重要度 >= TIER_CRITICAL 的条目不受单标的配额限制 —— 重大事件不该被挤掉。
+    重要度 >= TIER_CRITICAL 的条目配额放宽到 critical_per_symbol（默认 2）——
+    重大事件优先，但**不再无上限**：旧版 critical 免配额，SPCX 曾一次占 3 席，
+    清单连续几天看起来一模一样（2026-09-30 用户反馈「必读一直是旧的」根因之一）。
     """
     scored.sort(key=lambda x: (-x["importance"], -x["impact"], x["occurred_on"] or "", -x["id"]))
     picked: list[dict[str, Any]] = []
@@ -322,11 +188,30 @@ def _pick_top(scored: list[dict[str, Any]], top_n: int, per_symbol: int) -> list
         if len(picked) >= top_n:
             break
         sym = it["symbol"]
-        if it["importance"] < TIER_CRITICAL and used.get(sym, 0) >= per_symbol:
+        cap = critical_per_symbol if it["importance"] >= TIER_CRITICAL else per_symbol
+        if used.get(sym, 0) >= cap:
             continue
         used[sym] = used.get(sym, 0) + 1
         picked.append(it)
     return picked
+
+
+def _fold_families(scored: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """同题折叠：同一标的同一天的多条事件只留重要度最高的一条进必读候选。
+
+    为什么需要：dedupe_key 按标题精确匹配，同一条消息被多家媒体各写一遍
+    （「星舰 Flight 14 完成入轨」/「SpaceX Launches Starship Flight 14」…）
+    各自成条，一个事件家族就能占掉 top 多席 —— 用户看到的永远是同一天
+    几家媒体对同一件事的复述。被折叠掉的事件仍参与 by_symbol / totals 统计，
+    只是不再重复占「必读」席位。纯函数，可单测。
+    """
+    best: dict[tuple[str, str], dict[str, Any]] = {}
+    for it in scored:
+        key = (it["symbol"], it["occurred_on"] or "")
+        cur = best.get(key)
+        if cur is None or it["importance"] > cur["importance"]:
+            best[key] = it
+    return list(best.values())
 
 
 def build_digest(days: int = DIGEST_DAYS, symbol: str | None = None,
@@ -359,7 +244,7 @@ def build_digest(days: int = DIGEST_DAYS, symbol: str | None = None,
         s = score_event(e, today=today)
         scored.append({**e, **s})
 
-    top = _pick_top(list(scored), top_n, per_symbol)
+    top = _pick_top(_fold_families(list(scored)), top_n, per_symbol)
 
     # 按标的聚合：条数 + 最高重要度 + 多空净分
     by_symbol: dict[str, dict[str, Any]] = {}
@@ -415,8 +300,22 @@ def build_digest(days: int = DIGEST_DAYS, symbol: str | None = None,
             **t,
         })
 
+    def _ingested_today(x: dict[str, Any]) -> bool:
+        ca = x.get("created_at")
+        try:
+            d = dt.datetime.fromisoformat(str(ca))
+        except (TypeError, ValueError):
+            return False
+        if d.tzinfo is None:
+            d = d.replace(tzinfo=dt.timezone.utc)
+        return d.astimezone().date() == local_today
+
+    local_today = dt.date.today()
     totals = {
         "events": len(scored),
+        # 今日新增（按本地日历日的**入库时刻**）：让「系统在动」可见 ——
+        # 就算 top 被窗口内高重要度事件占据，这个数字也每天在涨
+        "today": sum(1 for x in scored if _ingested_today(x)),
         "critical": sum(1 for x in scored if x["tier"] == "critical"),
         "high": sum(1 for x in scored if x["tier"] == "high"),
         "positive": sum(1 for x in scored if x["sentiment"] == "positive"),
@@ -517,6 +416,109 @@ def ensure_digest(date: str | None = None, days: int = DIGEST_DAYS,
     payload = build_digest(days=days)
     save_digest(payload, generated_by=generated_by)
     return load_digest(payload["date"]) or {"payload": payload}
+
+
+# ------------------------------------------------------------------
+# 实时刷新：数据一到就更新每日必读（2026-09-29）
+# ------------------------------------------------------------------
+# 旧行为的根因：清单只在监控重 tick（interval_minutes 一轮）落库一次；
+# 手动「立即抓取」/ Bridge Agent 提交的事件入库后没有任何触发点，
+# GET /intel/digest 一直返回当天的旧行 —— 「跑了但没实时数据回来」。
+# 现在双保险：
+#   · add_events / add_analysis 入库新数据 → refresh_async() 后台立刻重算（并发合并）；
+#   · GET /intel/digest → refresh_if_stale()：落库行落后于最新事件时同步重算（30s 节流）。
+_refresh_lock = threading.Lock()
+_refresh_thread: threading.Thread | None = None
+_refresh_pending = threading.Event()
+_sync_rebuild_at = 0.0
+_SYNC_REBUILD_MIN_GAP = 30.0   # 同步重算节流（秒）：批次进行中不让每次轮询都跑 5~8s 重算
+
+
+def _aware_utc(x: dt.datetime | str | None) -> dt.datetime | None:
+    """统一到 aware UTC（DB 读回的 naive 视为 UTC；isoformat 字符串直接解析）。"""
+    if x is None:
+        return None
+    if isinstance(x, str):
+        try:
+            x = dt.datetime.fromisoformat(x)
+        except ValueError:
+            return None
+    if x.tzinfo is None:
+        return x.replace(tzinfo=dt.timezone.utc)
+    return x
+
+
+def newest_event_at() -> dt.datetime | None:
+    """最新一条事件的入库时刻（空表返回 None）。表小，直接 max()。"""
+    with session_scope() as db:
+        row = (
+            db.query(IntelEvent.created_at)
+            .order_by(IntelEvent.created_at.desc(), IntelEvent.id.desc())
+            .first()
+        )
+        return row[0] if row else None
+
+
+def refresh_async(generated_by: str = "auto") -> None:
+    """后台重算每日必读（纯规则、不调 LLM）。
+
+    并发触发只合并：已有刷新线程在跑时仅置位 pending，它算完当前轮会再补算
+    一次（拿到刚入库的数据），绝不堆积线程。绝不在 HTTP 请求线程里同步跑
+    5~8s 的重算 —— 会拖死接口（铁律 9：长活不占请求线程）。
+    """
+
+    def _worker() -> None:
+        while True:
+            _refresh_pending.clear()
+            try:
+                payload = build_digest()
+                save_digest(payload, generated_by=generated_by[:32])
+                log.info("Intel 每日必读实时刷新（触发：%s）：必读 %s 条 / 候选 %s 条",
+                         generated_by, (payload.get("totals") or {}).get("top"),
+                         (payload.get("totals") or {}).get("events"))
+            except Exception:  # noqa: BLE001 —— 刷新失败绝不影响数据入库
+                log.exception("Intel 每日必读实时刷新失败")
+                return
+            if not _refresh_pending.is_set():
+                return
+
+    global _refresh_thread
+    with _refresh_lock:
+        if _refresh_thread is not None and _refresh_thread.is_alive():
+            _refresh_pending.set()
+            return
+        _refresh_thread = threading.Thread(target=_worker, name="intel-digest-refresh", daemon=True)
+        _refresh_thread.start()
+
+
+def refresh_if_stale(row: dict[str, Any]) -> dict[str, Any]:
+    """GET 兜底：落库清单落后于最新事件 → 同步重算（30s 节流，节流期内转后台）。
+
+    正常路径下 refresh_async 已在数据入库后几秒内更新清单；这里兜住
+    「后台刷新还没跑完就打开页面」的场景，保证打开即最新。节流期内不改数据
+    只转后台 —— 避免「指定标的抓取批次进行中」每次轮询都触发 5~8s 重算。
+    """
+    global _sync_rebuild_at
+    try:
+        newest = _aware_utc(newest_event_at())
+        updated = _aware_utc(row.get("updated_at"))
+    except Exception:  # noqa: BLE001 —— 判定失败就按原样返回，绝不让 GET 变 500
+        return row
+    if newest is None or (updated is not None and newest <= updated):
+        return row  # 已是最新（或库里还没有事件）
+    now = time.time()
+    if now - _sync_rebuild_at < _SYNC_REBUILD_MIN_GAP:
+        refresh_async(generated_by="stale")
+        return row
+    _sync_rebuild_at = now
+    try:
+        days = int((row.get("payload") or {}).get("days") or DIGEST_DAYS)
+        payload = build_digest(days=max(1, min(14, days)))
+        save_digest(payload, generated_by="api")
+        return load_digest(scope=str(row.get("scope") or "all")) or row
+    except Exception:  # noqa: BLE001
+        log.exception("Intel 每日必读过期重算失败")
+        return row
 
 
 # ------------------------------------------------------------------
