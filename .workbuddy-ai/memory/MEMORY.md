@@ -77,6 +77,12 @@ API `POST /ai/assist {task,payload,model,force_local}`；前端 `lib/ai.ts` + `c
   三个静默坑：`_normalize` **非幂等**；TwelveData datetime 是**无时区墙钟**（须 `tz_localize("America/New_York")`
   后由 `fetch_history` 做**唯一一次**归一化）；`outputsize=5000` 分支**不认 `end`** → 会读到**未来数据**。
 - IBKR 管**价格历史 + 实时看盘 + 实盘执行**；**基本面/财报完全没有**。
+- ⚠️ **增量更新只把 `inc is None`（异常/8s 超时）当失败**；「调用成功但零行」（休市 / 当日 K 线
+  尚未发布）**不得** `_mark_yf_fail()` —— yfinance 熔断是**全局**的，一个标的「今天没新 K 线」
+  会冻结 120s 内**所有**标的，整批退化成旧缓存/合成。症状：`fetch_history` 返回
+  `("cache-stale", 1946 根)`。`run_checks.py` 的「数据源可用」断言旧集合只写了
+  `("yfinance","stooq","cache","synthetic")`，早于 `local`/`ibkr`/`cache+inc`/`cache-stale`/
+  `twelvedata`/`finnhub`/`tencent-hk` 存在 → 已改为 `_DATA_SOURCES` 全集（新增数据源要同步）。
 
 ## 5. 测试与验证
 - 后端：`cd backend && .venv/Scripts/python.exe ../tests/run_checks.py [data|strategies|optimize|api|rankings|screener|twelvedata|ai|intel]`
@@ -86,6 +92,10 @@ API `POST /ai/assist {task,payload,model,force_local}`；前端 `lib/ai.ts` + `c
 - **规模债台账见仓库根 `FILE_SIZE_DEBT_2026-09-29.md`**：19 个存量债逐条（结构/拆分缝/配方）
   + 批次 A–F + 拆分技术手册（零改动 barrel、路径多一层 `../`、JSX 须 `.tsx`、私有须 `export`、
   mixin 拆巨型类、**脚本用 Write 落盘别用 heredoc**）。**还债先读它。**
+- ✅ **2026-10-01：19 个存量债全部拆完，`tests/size_baseline.json` → `{}`，棘轮归零**
+  （受管文件 320 个、超软上限 0 个）。台账保留为「拆分技术手册」。
+  全套回归：`size` 3/3 · `data` 15/15 · `strategies` 52/52 · `optimize` 23/23 · `api` 107/107 ·
+  `intel` 148/148 · ruff 干净 · `typecheck`/`lint:hooks`/`build` ✅ · `test:topics` 10/10 · `test:render` 250/250。
 
 ## 6. 重启服务 / 确认改动生效
 - **改后端代码后 8787 不会自动生效**。用户报「AI 报错 / 行为没变」先确认是不是旧进程。
@@ -134,3 +144,12 @@ API `POST /ai/assist {task,payload,model,force_local}`；前端 `lib/ai.ts` + `c
   ⚠️ 最隐蔽的一类：**真实密钥被当成「测试夹具」**（`tests/run_checks.py` 曾把用户的真
   `TWELVEDATA_API_KEY` 塞进掩码测试）—— 文件名正常、不在 ignore 里，**只有读真值反查内容才抓得到**。
   另：`git add -A` 前先看暂存清单，验证接口留下的 `rk_*.json` / `*.log` 快照很容易被顺手收进去。
+- ⚠️⚠️ **「复盘事故」的文档本身就是第二大泄漏源**（2026-10-01 实测）：`2026-09-29.md` 里
+  复盘「真 key 被当夹具」时**把明文抄进了文档**，随后随提交进了历史 —— 而紧邻的上一行刚写着
+  「`git log -S` 确认从未提交过」。**写事故报告/记忆一律用同长度合成串，禁止抄录明文。**
+  处置：`git filter-branch -f --tree-filter <擦除脚本> -- origin/main..HEAD` 重写全区间抹除，
+  再 `reflog expire --expire=now --all && gc --prune=now` 清掉孤立对象。
+  **因该区间未推送（`origin/main` = 8eb1ccb），无需轮换密钥。** 核对：`git log -S <明文> --all` 为空、
+  `git diff <重写前tip> HEAD` 为空（只有历史变、树不变）、`git fsck` 干净。
+  ⚠️ filter-branch 结尾可能打印 `Ref 'refs/heads/main' is unchanged` —— **这是假警报**，
+  以 `git log --oneline` 里的新哈希为准。
