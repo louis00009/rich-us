@@ -27,11 +27,11 @@ from __future__ import annotations
 import json
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
 from .config import CACHE_DIR
+from .quote_cache import QuoteCache, accept_refresh as _accept_refresh
 
 _MOVERS_DIR = CACHE_DIR / "movers"
 _QUOTES_SNAPSHOT = _MOVERS_DIR / "quotes.json"
@@ -40,36 +40,29 @@ _QUOTE_TTL = 180         # 秒。池子扩到 2241 只后全量抓取 ~2min —�
 _CHUNK = 100
 _WORKERS = 4
 _HIST_DAYS = 10          # 拉 10 根日线：1 根当日 + 9 根算量比
-_MIN_REFRESH_RATIO = 0.8
 
-_quote_lock = threading.Lock()
-_quote_cache: tuple[float, dict[str, dict[str, Any]]] = (0.0, {})
-_refreshing = False
-_refresh_state: dict[str, Any] = {"last": 0.0, "ok": None}
+# 全池行情缓存机制（磁盘读写 / 后台单飞刷新 / 覆盖率闸门）已按铁律 9 抽到
+# `quote_cache.py`，与 rankings.py 共用同一实现；本模块只保留 movers 特有的
+# 解析（量比 / bar_date）与编排。
+_qc = QuoteCache(
+    snapshot_path=_QUOTES_SNAPSHOT,
+    ttl=_QUOTE_TTL,
+    chunk=_CHUNK,
+    workers=_WORKERS,
+    thread_name="movers-refresh",
+    include_updated=True,
+)
 
 
-# ---------------- 批量行情 ----------------
 def _load_disk() -> tuple[float, dict[str, dict[str, Any]]]:
-    try:
-        if _QUOTES_SNAPSHOT.exists():
-            data = json.loads(_QUOTES_SNAPSHOT.read_text(encoding="utf-8"))
-            return float(data.get("ts", 0.0)), dict(data.get("quotes", {}))
-    except Exception:  # noqa: BLE001
-        pass
-    return 0.0, {}
+    return _qc.load_disk()
 
 
 def _save_disk(quotes_map: dict[str, dict[str, Any]]) -> None:
-    try:
-        _MOVERS_DIR.mkdir(parents=True, exist_ok=True)
-        _QUOTES_SNAPSHOT.write_text(
-            json.dumps({"ts": time.time(), "quotes": quotes_map}, ensure_ascii=False),
-            encoding="utf-8",
-        )
-    except Exception:  # noqa: BLE001
-        pass
+    _qc.save_disk(quotes_map)
 
 
+# ---------------- 批量行情 ----------------
 def _parse_chunk(chunk: list[str], df: Any) -> dict[str, dict[str, Any]]:
     """把 yf.download 的分块结果解析成 {symbol: quote}。
 
@@ -115,72 +108,16 @@ def _fetch_all_quotes() -> dict[str, dict[str, Any]]:
     from .rankings import constituents
 
     syms = [c["symbol"] for c in constituents()["constituents"]]
-    chunks = [syms[i: i + _CHUNK] for i in range(0, len(syms), _CHUNK)]
-
-    def work(chunk: list[str]) -> dict[str, dict[str, Any]]:
-        try:
-            import yfinance as yf
-
-            df = yf.download(
-                tickers=" ".join(chunk), period=f"{_HIST_DAYS}d", interval="1d",
-                group_by="ticker", threads=False, progress=False, auto_adjust=False,
-            )
-            return _parse_chunk(chunk, df)
-        except Exception:  # noqa: BLE001
-            return {}
-
-    out: dict[str, dict[str, Any]] = {}
-    with ThreadPoolExecutor(max_workers=_WORKERS) as ex:
-        futs = [ex.submit(work, c) for c in chunks]
-        for f in as_completed(futs):
-            out.update(f.result() or {})
-    return out
-
-
-def _accept_refresh(fresh_count: int, old_count: int) -> bool:
-    if fresh_count <= 0:
-        return False
-    if old_count <= 0:
-        return True
-    return fresh_count >= old_count * _MIN_REFRESH_RATIO
+    return _qc.fetch_all(syms, _parse_chunk, period=f"{_HIST_DAYS}d")
 
 
 def _bg_refresh() -> None:
     """后台刷新行情并落盘。同一时刻仅一路（_refreshing 旗标保证）。"""
-    global _quote_cache, _refreshing
-    try:
-        fresh = _fetch_all_quotes()
-        _, old = _quote_cache
-        if _accept_refresh(len(fresh), len(old)):
-            with _quote_lock:
-                _quote_cache = (time.time(), fresh)
-            _save_disk(fresh)
-            _refresh_state["ok"] = True
-        else:
-            _refresh_state["ok"] = False
-            _refresh_state["error"] = (
-                f"本次只抓到 {len(fresh)} 只（旧缓存 {len(old)} 只），覆盖率过低，保留旧缓存"
-            )[:160]
-    except Exception as exc:  # noqa: BLE001
-        _refresh_state["ok"] = False
-        _refresh_state["error"] = f"{type(exc).__name__}: {exc}"[:160]
-    finally:
-        with _quote_lock:
-            _refreshing = False
-        _refresh_state["last"] = time.time()
+    _qc.bg_refresh(_fetch_all_quotes)
 
 
 def quote_cache_meta() -> dict[str, Any]:
-    ts, data = _quote_cache
-    return {
-        "count": len(data),
-        # 行情真正抓取完成的时刻（≠ 响应生成时间）—— 前端「上次更新」显示用它
-        "updated": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts)) if ts else None,
-        "age_sec": int(time.time() - ts) if ts else None,
-        "stale": (not data) or (time.time() - ts >= _QUOTE_TTL),
-        "refreshing": _refreshing,
-        "last_refresh_ok": _refresh_state.get("ok"),
-    }
+    return _qc.meta()
 
 
 def quotes(force: bool = False) -> dict[str, dict[str, Any]]:
@@ -189,26 +126,7 @@ def quotes(force: bool = False) -> dict[str, dict[str, Any]]:
     force=True：跳过新鲜度判定直接起后台刷新（手动刷新按钮用）——
     立即返回当前缓存，刷完后由下一轮轮询取到新数据，绝不在请求线程里联网。
     """
-    global _quote_cache, _refreshing
-    ts, data = _quote_cache
-    if not data:                       # 冷启动：先读磁盘快照
-        ts, data = _load_disk()
-        if data:
-            with _quote_lock:
-                if not _quote_cache[1]:
-                    _quote_cache = (ts, data)
-
-    fresh_enough = bool(data) and not force and time.time() - ts < _QUOTE_TTL
-    if fresh_enough:
-        return data
-
-    with _quote_lock:
-        busy = _refreshing
-        if not busy:
-            _refreshing = True
-    if not busy:
-        threading.Thread(target=_bg_refresh, daemon=True, name="movers-refresh").start()
-    return dict(data)
+    return _qc.get(_fetch_all_quotes, force=force)
 
 
 # ---------------- 当日审计日志 ----------------
@@ -352,123 +270,30 @@ def market_screen() -> list[dict[str, Any]]:
 
 
 # ---------------- 常驻监控任务（开关 + 持续运行） ----------------
-_mon_lock = threading.Lock()
-_mon_thread: threading.Thread | None = None
-_stop_event = threading.Event()
-_mon_state: dict[str, Any] = {"running": False, "last_scan": "", "scans": 0, "last_error": ""}
-_CFG_KEY = "movers_monitor"
+# 已按铁律 9 拆到 movers_monitor.py（FILE_SIZE_DEBT Batch D-3）。
+# 这里 re-export 保持 `from app.movers import set_monitor_cfg` 等旧引用路径不变。
+from .movers_monitor import (  # noqa: E402,F401
+    _ensure_thread,
+    _monitor_cfg,
+    _monitor_loop,
+    monitor_status,
+    resume_monitor,
+    set_monitor_cfg,
+)
 
 
-def _monitor_cfg() -> dict[str, Any]:
-    """读取持久化配置（state.set_setting 存储，重启后自动恢复）。"""
-    cfg: dict[str, Any] = {}
-    try:
-        from .state import get_setting
+def __getattr__(name: str) -> Any:
+    """PEP 562：把监控线程的内部状态属性转发到 movers_monitor。
 
-        raw = get_setting(_CFG_KEY, "")
-        if raw:
-            cfg = json.loads(raw)
-    except Exception:  # noqa: BLE001 —— 配置损坏按默认处理
-        cfg = {}
-    try:
-        threshold = max(0.5, min(20.0, float(cfg.get("threshold") or 3.0)))
-    except (TypeError, ValueError):
-        threshold = 3.0
-    try:
-        interval = max(30, min(600, int(cfg.get("interval") or 60)))
-    except (TypeError, ValueError):
-        interval = 60
-    return {
-        "enabled": bool(cfg.get("enabled")),
-        "threshold": threshold,
-        "interval": interval,
-        "model": str(cfg.get("model") or ""),
-    }
+    常驻监控状态（_mon_state / _mon_thread / _mon_lock / _stop_event）的真实
+    拥有者是 movers_monitor（线程在那里启停），但测试与排障代码习惯直接读
+    `app.movers._mon_state` —— 转发保证读到的是**活的**状态对象。
+    """
+    if name in ("_mon_state", "_mon_thread", "_mon_lock", "_stop_event", "_CFG_KEY"):
+        from . import movers_monitor as _mm
 
-
-def set_monitor_cfg(enabled: bool | None = None, threshold: float | None = None,
-                    interval: int | None = None, model: str | None = None) -> dict[str, Any]:
-    """更新监控配置（持久化）并立即生效（起线程 / 停线程）。"""
-    cfg = _monitor_cfg()
-    if enabled is not None:
-        cfg["enabled"] = bool(enabled)
-    if threshold is not None:
-        try:
-            cfg["threshold"] = max(0.5, min(20.0, float(threshold)))
-        except (TypeError, ValueError):
-            pass
-    if interval is not None:
-        try:
-            cfg["interval"] = max(30, min(600, int(interval)))
-        except (TypeError, ValueError):
-            pass
-    if model is not None:
-        cfg["model"] = str(model or "")
-    from .state import set_setting
-
-    set_setting(_CFG_KEY, json.dumps(cfg, ensure_ascii=False))
-    if cfg["enabled"]:
-        _ensure_thread()
-    else:
-        _stop_event.set()
-    return monitor_status()
-
-
-def monitor_status() -> dict[str, Any]:
-    with _mon_lock:
-        live = dict(_mon_state)
-    try:
-        from .ai_analyst import ai_configured
-    except Exception:  # noqa: BLE001 —— AI 模块不可用不拖垮状态查询
-        def ai_configured() -> bool:
-            return False
-
-    return {
-        **live,
-        "cfg": _monitor_cfg(),
-        "llm_configured": ai_configured(),
-    }
-
-
-def _monitor_loop() -> None:
-    """常驻扫描循环：每 interval 秒跑一轮 movers()（内部写审计日志）。"""
-    while not _stop_event.is_set():
-        cfg = _monitor_cfg()
-        if not cfg["enabled"]:
-            break
-        try:
-            movers(threshold=cfg["threshold"], limit=15)
-            with _mon_lock:
-                _mon_state["running"] = True
-                _mon_state["last_scan"] = time.strftime("%Y-%m-%d %H:%M:%S")
-                _mon_state["scans"] = int(_mon_state["scans"]) + 1
-                _mon_state["last_error"] = ""
-        except Exception as exc:  # noqa: BLE001 —— 单轮失败不能停监控
-            with _mon_lock:
-                _mon_state["last_error"] = f"{type(exc).__name__}: {exc}"[:160]
-        _stop_event.wait(cfg["interval"])
-    with _mon_lock:
-        _mon_state["running"] = False
-
-
-def _ensure_thread() -> None:
-    global _mon_thread
-    with _mon_lock:
-        if _mon_thread is not None and _mon_thread.is_alive():
-            return
-        _stop_event.clear()
-        _mon_state["running"] = True
-        _mon_thread = threading.Thread(target=_monitor_loop, daemon=True, name="movers-monitor")
-        _mon_thread.start()      # ⚠️ 创建≠启动 —— 漏掉 start() 时 running 旗标为 True 但扫描永不发生
-
-
-def resume_monitor() -> None:
-    """服务启动时恢复常驻监控（cfg.enabled=true 才起线程）。由 main.py lifespan 调。"""
-    try:
-        if _monitor_cfg()["enabled"]:
-            _ensure_thread()
-    except Exception:  # noqa: BLE001
-        pass
+        return getattr(_mm, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 # ---------------- AI 解读 ----------------
@@ -677,7 +502,7 @@ def movers(threshold: float = 3.0, limit: int = 15, force: bool = False) -> dict
         "limit": limit,
         "as_of": as_of or None,
         "updated": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "quotes_updated": meta["updated"],   # 行情真正抓取完成的时刻（前端「上次更新」）
+        "quotes_updated": meta.get("updated"),   # 行情真正抓取完成的时刻（前端「上次更新」）
         "status": status,
         "stale": meta["stale"],
         "refreshing": meta["refreshing"],

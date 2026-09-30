@@ -21,14 +21,13 @@
 from __future__ import annotations
 
 import json
-import re
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
 from .config import CACHE_DIR
+from .quote_cache import QuoteCache, accept_refresh as _accept_refresh
 
 SNAPSHOT_PATH = Path(__file__).resolve().parent / "markets" / "sp500.json"
 _QUOTES_SNAPSHOT = CACHE_DIR / "sp500_quotes.json"
@@ -45,10 +44,19 @@ _snap_lock = threading.Lock()
 _snap_cache: dict[str, Any] | None = None
 _snap_loaded_at = 0.0
 
-_quote_lock = threading.Lock()
-_quote_cache: tuple[float, dict[str, dict[str, Any]]] = (0.0, {})
-_refreshing = False
+# 成分股清单刷新（Wikipedia 7 天 TTL）的状态；行情缓存的后台刷新状态已并入 QuoteCache
 _refresh_state: dict[str, Any] = {"last": 0.0, "ok": None}
+
+# 全池行情缓存机制（磁盘读写 / 后台单飞刷新 / 覆盖率闸门）已按铁律 9 抽到
+# `quote_cache.py`，与 movers.py 共用同一实现；本模块只保留 rankings 特有的
+# 解析与编排。
+_qc = QuoteCache(
+    snapshot_path=_QUOTES_SNAPSHOT,
+    ttl=_QUOTE_TTL,
+    chunk=_CHUNK,
+    workers=_WORKERS,
+    thread_name="rankings-refresh",
+)
 
 # 快照保存节流：全部数据源新鲜时的每个请求都会通过校验，但落盘 2200+ 只 × 全字段
 # 约 5MB，没有必要每次都写 —— 5 分钟内只写一次。
@@ -112,25 +120,11 @@ def refresh_constituents(force: bool = False) -> dict[str, Any]:
 
 # ---------------- 批量行情 ----------------
 def _load_disk() -> tuple[float, dict[str, dict[str, Any]]]:
-    """磁盘快照恢复。缺失/损坏时先尝试出厂 seed —— 2026-09-28 的 0 字节事故
-    （write_text 非原子写被重启打断）曾让这里每次重启都返回空 → 用户每次
-    开页面都等 30s+ 全量抓取。"""
-    from .cacheio import ensure_seed, load_json_snapshot
-
-    ensure_seed(_QUOTES_SNAPSHOT)
-    data = load_json_snapshot(_QUOTES_SNAPSHOT)
-    if data and data.get("quotes"):
-        try:
-            return float(data.get("ts", 0.0)), dict(data["quotes"])
-        except Exception:  # noqa: BLE001
-            return 0.0, {}
-    return 0.0, {}
+    return _qc.load_disk()
 
 
 def _save_disk(quotes_map: dict[str, dict[str, Any]]) -> None:
-    from .cacheio import atomic_write_json
-
-    atomic_write_json(_QUOTES_SNAPSHOT, {"ts": time.time(), "quotes": quotes_map})
+    _qc.save_disk(quotes_map)
 
 
 def _parse_chunk(chunk: list[str], df: Any) -> dict[str, dict[str, Any]]:
@@ -164,83 +158,20 @@ def _parse_chunk(chunk: list[str], df: Any) -> dict[str, dict[str, Any]]:
 def _fetch_all_quotes() -> dict[str, dict[str, Any]]:
     """并发抓全部成分股行情（分块 yf.download + 线程池）。"""
     syms = [c["symbol"] for c in constituents()["constituents"]]
-    chunks = [syms[i: i + _CHUNK] for i in range(0, len(syms), _CHUNK)]
-
-    def work(chunk: list[str]) -> dict[str, dict[str, Any]]:
-        try:
-            import yfinance as yf
-
-            df = yf.download(
-                tickers=" ".join(chunk), period="5d", interval="1d",
-                group_by="ticker", threads=False, progress=False, auto_adjust=False,
-            )
-            return _parse_chunk(chunk, df)
-        except Exception:  # noqa: BLE001
-            return {}
-
-    out: dict[str, dict[str, Any]] = {}
-    with ThreadPoolExecutor(max_workers=_WORKERS) as ex:
-        futs = [ex.submit(work, c) for c in chunks]
-        for f in as_completed(futs):
-            out.update(f.result() or {})
-    return out
-
-
-# 刷新结果的最低覆盖率：新抓到的标的数不足旧缓存的这个比例时，视为「部分失败」，
-# 保留旧缓存不覆盖。80% 是留出正常波动的余量（个别标的偶尔抓不到很正常），
-# 又能挡住真正的塌方（实测 yfinance 超时那次只抓到 228/503 = 45%）。
-_MIN_REFRESH_RATIO = 0.8
-
-
-def _accept_refresh(fresh_count: int, old_count: int) -> bool:
-    """本次刷新结果是否可接受（能不能覆盖旧缓存）。"""
-    if fresh_count <= 0:
-        return False
-    if old_count <= 0:
-        return True
-    return fresh_count >= old_count * _MIN_REFRESH_RATIO
+    return _qc.fetch_all(syms, _parse_chunk, period="5d")
 
 
 def _bg_refresh() -> None:
     """后台刷新行情并落盘。同一时刻仅一路（由 _refreshing 旗标保证）。
 
-    ⚠️ 必须做覆盖率闸门。旧实现是 `if fresh: 落盘` —— 无条件覆盖：
-    yfinance 部分超时（只抓到 228/503）时，会把好的 503 只快照**直接覆盖掉**，
-    榜单从「共 503 只」静默变成「共 228 只」，不报任何错。
-    对用户来说就是「股票少了一大半」，但页面看起来完全正常。
+    ⚠️ 必须做覆盖率闸门（quote_cache.accept_refresh，铁律 12）：yfinance
+    部分超时（只抓到 228/503）时若无条件覆盖，会把好的 503 只快照直接覆盖掉。
     """
-    global _quote_cache, _refreshing
-    try:
-        fresh = _fetch_all_quotes()
-        _, old = _quote_cache
-        if _accept_refresh(len(fresh), len(old)):
-            with _quote_lock:
-                _quote_cache = (time.time(), fresh)
-            _save_disk(fresh)
-            _refresh_state["ok"] = True
-        else:
-            _refresh_state["ok"] = False
-            _refresh_state["error"] = (
-                f"本次只抓到 {len(fresh)} 只（旧缓存 {len(old)} 只），覆盖率过低，保留旧缓存"
-            )[:160]
-    except Exception as exc:  # noqa: BLE001
-        _refresh_state["ok"] = False
-        _refresh_state["error"] = f"{type(exc).__name__}: {exc}"[:160]
-    finally:
-        with _quote_lock:
-            _refreshing = False
-        _refresh_state["last"] = time.time()
+    _qc.bg_refresh(_fetch_all_quotes)
 
 
 def quote_cache_meta() -> dict[str, Any]:
-    ts, data = _quote_cache
-    return {
-        "count": len(data),
-        "age_sec": int(time.time() - ts) if ts else None,
-        "stale": (not data) or (time.time() - ts >= _QUOTE_TTL),
-        "refreshing": _refreshing,
-        "last_refresh_ok": _refresh_state.get("ok"),
-    }
+    return _qc.meta()
 
 
 # ---------------- 响应级快照（打开即有完整数据） ----------------
@@ -336,26 +267,7 @@ def quotes(force: bool = False) -> dict[str, dict[str, Any]]:
     数据（可能为旧值或空）**，同时在后台线程刷新 —— HTTP 请求永不等待网络。
     冷启动先读磁盘快照。
     """
-    global _quote_cache, _refreshing
-    ts, data = _quote_cache
-    if not data:                       # 冷启动：尝试磁盘快照
-        ts, data = _load_disk()
-        if data:
-            with _quote_lock:
-                if not _quote_cache[1]:
-                    _quote_cache = (ts, data)
-
-    fresh_enough = bool(data) and not force and time.time() - ts < _QUOTE_TTL
-    if fresh_enough:
-        return data
-
-    with _quote_lock:
-        busy = _refreshing
-        if not busy:
-            _refreshing = True
-    if not busy:
-        threading.Thread(target=_bg_refresh, daemon=True, name="rankings-refresh").start()
-    return dict(data)
+    return _qc.get(_fetch_all_quotes, force=force)
 
 
 # ---------------- 榜单 ----------------
@@ -395,165 +307,16 @@ _SORT_BOOL = ("ma_bull",)
 SORT_FIELDS: tuple[str, ...] = _SORT_NUMERIC + _SORT_BOOL + ("symbol",)
 
 
-_CJK_RE = re.compile(r"[\u3400-\u9fff\uf900-\ufaff]")
-
-
-def _name_match(name: str, ql: str) -> bool:
-    """名称匹配：拉丁文按**词首**，CJK 按**子串**。
-
-    · 拉丁文若用任意子串，"tmo" 会命中 "Atmos Energy"（a-**tmo**-s）——
-      用户搜一个明确的代码，结果无关公司混进来。按词首匹配即可消除，
-      同时 "fisher" 仍能命中 "Thermo Fisher"、"thermo fisher" 命中整名开头。
-    · CJK 没有词边界，「赛默飞」必须在「赛默飞世尔」**中间**也能命中，故用子串。
-    """
-    n = (name or "").lower()
-    if not n:
-        return False
-    if _CJK_RE.search(ql):                     # 中文查询 → 子串
-        return ql in n
-    if n.startswith(ql):                       # 拉丁文 → 整名开头
-        return True
-    return any(w.startswith(ql) for w in re.split(r"[^a-z0-9]+", n) if w)
-
-
-def _match_rank(sym: str, name: str, name_cn: str, ql: str) -> int | None:
-    """搜索匹配质量：0 = 代码精确 / 1 = 代码前缀 / 2 = 名称命中；不匹配返回 None。
-
-    ⚠️ 旧实现是 `ql in sym.lower()` 的**子串**匹配 —— 搜 "TMO" 会命中
-    "ATMOS Energy"（a-**tmo**-s），用户搜一个明确的代码，结果无关标的按当前
-    排序（如涨跌幅）排在正主前面，看起来就像「搜不出来」。代码必须前缀匹配。
-    """
-    s = (sym or "").lower()
-    if s == ql:
-        return 0
-    if s.startswith(ql):
-        return 1
-    if _name_match(name, ql) or _name_match(name_cn, ql):
-        return 2
-    return None
-
-
-def _sort_rows(rows: list[dict[str, Any]], sort: str, desc: bool) -> None:
-    """排序。**缺失值恒排末尾**（不论升序降序）。
-
-    旧实现是 `x.get("market_cap") or 0.0` —— 把"没有数据"当成 0：升序时这些行
-    会顶到最前面，用户看到的"市值最小的股票"其实是没有市值的股票。
-    加估值指标后缺失面会大得多（腾讯不覆盖的小票），所以这里必须修。
-    """
-    if sort == "symbol":
-        rows.sort(key=lambda r: str(r.get("symbol") or ""), reverse=desc)
-    else:
-        def key(r: dict[str, Any]) -> tuple[bool, float]:
-            v = r.get(sort)
-            # bool 必须先判：Python 里 True == 1，否则布尔列会与数值列混排
-            if isinstance(v, bool):
-                return (False, -float(v) if desc else float(v))
-            if not isinstance(v, (int, float)):
-                return (True, 0.0)              # 缺失 → 永远排在最后
-            return (False, -float(v) if desc else float(v))
-
-        rows.sort(key=key)
-
-    # 搜索匹配质量作为**主排序键**：代码精确 > 代码前缀 > 名称命中。
-    # Python 的 sort 是稳定的 → 同一质量档内保持上面算好的排序。
-    # 无搜索时 _match_rank 全为 0，这一步等价于空操作。
-    if rows and "_match_rank" in rows[0]:
-        rows.sort(key=lambda r: r.get("_match_rank", 9))
-
-
-def _build_filter(
-    pe_min: float | None, pe_max: float | None, pb_max: float | None,
-    cap_min: float | None, div_min: float | None, roe_min: float | None,
-    from_high_max: float | None, exclude_loss: bool,
-    rsi_min: float | None = None, rsi_max: float | None = None,
-    above_ma200: bool = False, below_ma200: bool = False,
-    vol_max: float | None = None, beta_max: float | None = None,
-    score_min: float | None = None, only_bull: bool = False,
-    req_1y_min: float | None = None, excess_min: float | None = None,
-) -> Any:
-    """构造行过滤器。
-
-    语义要点：**设了某指标的区间，缺该指标的标的会被排除**，而不是当成 0。
-    否则「PE ≤ 15」会混进一堆根本没有 EPS 数据的标的（那些标的 PE 显示为 —）。
-    技术面筛选同理 —— 没有均线数据的标的不会因为「不知道」而被放行。
-    """
-    def keep(r: dict[str, Any]) -> bool:
-        if exclude_loss and r.get("pe_state") == "loss":
-            return False
-        if pe_min is not None or pe_max is not None:
-            pe = r.get("pe_ttm")
-            if not isinstance(pe, (int, float)):
-                return False
-            if pe_min is not None and pe < pe_min:
-                return False
-            if pe_max is not None and pe > pe_max:
-                return False
-        if pb_max is not None:
-            pb = r.get("pb")
-            if not isinstance(pb, (int, float)) or pb > pb_max:
-                return False
-        if roe_min is not None:
-            roe = r.get("roe")
-            if not isinstance(roe, (int, float)) or roe < roe_min:
-                return False
-        if div_min is not None:
-            d = r.get("div_yield")
-            if not isinstance(d, (int, float)) or d < div_min:
-                return False
-        if cap_min is not None:
-            cap = r.get("market_cap")
-            if not isinstance(cap, (int, float)) or cap < cap_min * 1e8:   # 亿美元 → 美元
-                return False
-        if from_high_max is not None:
-            # 距 52 周高 ≤ from_high_max（如 -30 表示"从高点回撤至少 30%"）
-            fh = r.get("pct_from_high")
-            if not isinstance(fh, (int, float)) or fh > from_high_max:
-                return False
-
-        # ---- 技术面 ----
-        if rsi_min is not None or rsi_max is not None:
-            v = r.get("rsi14")
-            if not isinstance(v, (int, float)):
-                return False
-            if rsi_min is not None and v < rsi_min:
-                return False
-            if rsi_max is not None and v > rsi_max:
-                return False
-        if above_ma200:
-            v = r.get("ma200_rel")
-            if not isinstance(v, (int, float)) or v <= 0:
-                return False
-        if below_ma200:
-            v = r.get("ma200_rel")
-            if not isinstance(v, (int, float)) or v >= 0:
-                return False
-        if only_bull and r.get("ma_bull") is not True:
-            return False
-        if vol_max is not None:
-            v = r.get("vol_ann")
-            if not isinstance(v, (int, float)) or v > vol_max:
-                return False
-        if beta_max is not None:
-            v = r.get("beta")
-            if not isinstance(v, (int, float)) or v > beta_max:
-                return False
-        if req_1y_min is not None:
-            v = r.get("r1y")
-            if not isinstance(v, (int, float)) or v < req_1y_min:
-                return False
-        if excess_min is not None:
-            v = r.get("excess_1y")
-            if not isinstance(v, (int, float)) or v < excess_min:
-                return False
-
-        # ---- 评分 ----
-        if score_min is not None:
-            v = r.get("score")
-            if not isinstance(v, (int, float)) or v < score_min:
-                return False
-        return True
-
-    return keep
+# 榜单计算纯函数（搜索匹配 / 排序 / 过滤）已按铁律 9 拆到 `rankings_calc.py`。
+# 这里保留旧的下划线名字作为别名：测试与外部调用一直在用
+# `from app.rankings import _match_rank`，改名会静默断掉它们。
+from .rankings_calc import (  # noqa: E402,F401
+    _build_filter,
+    _CJK_RE,
+    _match_rank,
+    _name_match,
+    _sort_rows,
+)
 
 
 def rankings(
