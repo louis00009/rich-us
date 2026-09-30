@@ -83,6 +83,9 @@ API `POST /ai/assist {task,payload,model,force_local}`；前端 `lib/ai.ts` + `c
   （`TestClient` 进程内，**无需起服务**；⚠️ 需 `dangerouslyDisableSandbox`）。`data`/`api`/`all` 联网极慢。
 - 前端：`npm run typecheck | lint:hooks | build | test:topics | test:render | test:visual | test:visual:settings | test:visual:market | test:visual:intel | smoke`
   （后四个 visual 都要传 `<url> <token>`；`smoke` 需后端）。**只跑 `renderToString` 不算「前端做好了」。**
+- **规模债台账见仓库根 `FILE_SIZE_DEBT_2026-09-29.md`**：19 个存量债逐条（结构/拆分缝/配方）
+  + 批次 A–F + 拆分技术手册（零改动 barrel、路径多一层 `../`、JSX 须 `.tsx`、私有须 `export`、
+  mixin 拆巨型类、**脚本用 Write 落盘别用 heredoc**）。**还债先读它。**
 
 ## 6. 重启服务 / 确认改动生效
 - **改后端代码后 8787 不会自动生效**。用户报「AI 报错 / 行为没变」先确认是不是旧进程。
