@@ -87,7 +87,12 @@ _MIGRATE_COLUMNS: dict[str, list[tuple[str, str]]] = {
     "company_profiles": [("name_cn", "TEXT DEFAULT ''"), ("market_cap", "REAL DEFAULT 0")],
     "intel_events": [("stage", "VARCHAR(16) DEFAULT ''"), ("occurred_at", "VARCHAR(16) DEFAULT ''")],
     "intel_companies": [("note", "TEXT DEFAULT ''")],
-    "intel_settings": [("ai_scrape", "BOOLEAN DEFAULT 1")],
+    "intel_settings": [
+        ("ai_scrape", "BOOLEAN DEFAULT 1"),
+        ("pinned_symbols", "VARCHAR(256) DEFAULT ''"),
+        ("surge_pct", "FLOAT DEFAULT 3.0"),
+        ("llm_fallback_chain", "VARCHAR(512) DEFAULT ''"),  # 09-30：模型 fallback 链
+    ],
     "intel_analyses": [
         ("based_on_events", "TEXT DEFAULT '[]'"),
         ("event_score", "FLOAT"),

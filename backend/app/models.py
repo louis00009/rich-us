@@ -437,5 +437,47 @@ class IntelSetting(Base):
     interval_minutes: Mapped[int] = mapped_column(Integer, default=30)
     auto_analyze: Mapped[bool] = mapped_column(Boolean, default=True)
     ai_scrape: Mapped[bool] = mapped_column(Boolean, default=True)   # 内置 AI 自动抓取（新闻→事件）
+    # 重点标的（JSON 数组字符串，如 ["ORCL","NVDA"]）：监控每轮**优先抓取**，不再只作用于手动抓取。
+    # 2026-09-30 教训：用户指定了 ORCL，但监控自动轮询只按「到期」取标的，ORCL 暴涨当天
+    # 的关键新闻没能第一时间盯到 —— 「指定」必须等于「重点盯」。
+    pinned_symbols: Mapped[str] = mapped_column(String(256), default="")
+    # 价格异动联动阈值（%）：观察标的盘中 |涨跌幅| 达到该值 → 自动记异动事件 + 触发 AI 归因分析
+    surge_pct: Mapped[float] = mapped_column(Float, default=3.0)
     bridge_token: Mapped[str] = mapped_column(String(64), default="")
+    # 模型 fallback 链（逗号分隔）：每家抓取按顺序尝试，空 = 用 settings.ai_model。
+    # 例：`监hy4-perview,cn:glm-5.3-flash,deepseek4.1-flash` —— 09-30 加：解决
+    # 「一个模型挂 = 23 家全挂」问题；页面支持拖拽排序。
+    llm_fallback_chain: Mapped[str] = mapped_column(String(512), default="")
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
+
+
+class IntelRawNews(Base):
+    """抓取阶段落库的原始新闻（09-30 加）—— 不依赖 LLM 打标，先入库再说。
+
+    设计动机：之前 LLM 调用失败 = 新闻数据真丢；现在无论 LLM 成败，fetch_news
+    拿到的条目先落这张表（`status=pending/failed`），后续可走 retry 端点复用
+    缓存直接打标，省一次抓取。
+
+    关键约束：
+      · UNIQUE(symbol, source_url) —— 同源同 URL 不重复入库；
+      · 30 分钟内复用：retry 端点直接读 `status in (pending, failed)` 的最新行；
+      · used_for_event_id 入库成功后回填（防重复打标）。
+    """
+    __tablename__ = "intel_raw_news"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    symbol: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    published_at: Mapped[str] = mapped_column(String(32), default="")
+    headline: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    summary: Mapped[str] = mapped_column(String(1000), default="")
+    source: Mapped[str] = mapped_column(String(64), default="")
+    source_url: Mapped[str] = mapped_column(String(600), default="")
+    fetched_at: Mapped[dt.datetime] = mapped_column(DateTime, default=_now, index=True)
+    used_for_event_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    # pending=刚抓到未打标 / failed=LLM 失败待重试 / retrying=重试中 /
+    # used=已入库为事件 / failed_final=超过 3 次失败不再自动重试
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_error: Mapped[str] = mapped_column(String(200), default="")
+    __table_args__ = (
+        UniqueConstraint("symbol", "source_url", name="uq_raw_news_symbol_url"),
+    )
